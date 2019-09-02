@@ -1,6 +1,5 @@
 #define REPORTING_N 1000000
 #define LINEBUFLEN 1024
-#include <string>
 
 typedef unsigned long byteoffset;
 typedef unsigned int  entrycount;

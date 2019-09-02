@@ -176,10 +176,12 @@ int main(int argc, char *argv[]) {
 		fprintf(stderr, "Usage: [datadir] [query file] [results file]\n");
 		exit(1);
 	}
+	const char* query_path = (argv[1]);
+
 	/* memory-map files created by loader */
-	person_map   = (Person *)         mmapr(makepath(argv[1], "person",   "bin"), &person_length);
-	interest_map = (unsigned short *) mmapr(makepath(argv[1], "interest", "bin"), &interest_length);
-	knows_map    = (unsigned int *)   mmapr(makepath(argv[1], "knows",    "bin"), &knows_length);
+	person_map   = (Person *)         mmapr(makepath( (char *)query_path, (char *)"person", (char *)"bin"), &person_length);
+	interest_map = (unsigned short *) mmapr(makepath( (char *)query_path, (char *)"interest", (char *)"bin"), &interest_length);
+	knows_map    = (unsigned int *)   mmapr(makepath( (char *)query_path, (char *)"knows", (char *)"bin"), &knows_length);
 
   	outfile = fopen(argv[3], "w");  
   	if (outfile == NULL) {
