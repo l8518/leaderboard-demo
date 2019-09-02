@@ -96,58 +96,56 @@ void query(unsigned short qid, unsigned short artist, unsigned short areltd[], u
 
 	printf("Running query %d\n", qid);
 
-	// for (person_offset = 0; person_offset < person_length/sizeof(Person); person_offset++) {
-	// 	// printf( "%d\n", person_offset);
-	// 	// printf(person_offset, "\n");
+	int max_iterations = person_offset < person_length/sizeof(Person);
 
-	// 	person = &person_map[person_offset];
+	for (person_offset = 0; person_offset < max_iterations ; person_offset++) {
 
-	// 	// printf( "%d\n", person_offset);
+		person = &person_map[person_offset];
 
-	// 	if (person_offset > 0 && person_offset % REPORTING_N == 0) {
-	// 		printf("%.2f%%\n", 100 * (person_offset * 1.0/(person_length/sizeof(Person))));
-	// 	}
-	// 	// person must like some of these other guys
-	// 	score = get_score(person, areltd);
-	// 	if (score < 1) continue;
+		if (person_offset > 0 && person_offset % REPORTING_N == 0) {
+			printf("%.2f%%\n", 100 * (person_offset * 1.0/(person_length/sizeof(Person))));
+		}
+		// person must like some of these other guys
+		score = get_score(person, areltd);
+		if (score < 1) continue;
 
-	// 	// person must not like artist yet
-	// 	if (likes_artist(person, artist)) continue;
+		// person must not like artist yet
+		if (likes_artist(person, artist)) continue;
 
-	// 	// check if friend lives in same city and likes artist 
-	// 	for (knows_offset = person->knows_first; 
-	// 		knows_offset < person->knows_first + person->knows_n; 
-	// 		knows_offset++) {
+		// check if friend lives in same city and likes artist 
+		for (knows_offset = person->knows_first; 
+			knows_offset < person->knows_first + person->knows_n; 
+			knows_offset++) {
 
-	// 		knows = &person_map[knows_map[knows_offset]];
-	// 		if (person->location != knows->location) continue; 
+			knows = &person_map[knows_map[knows_offset]];
+			if (person->location != knows->location) continue; 
 
-	// 		// friend must already like the artist
-	// 		if (!likes_artist(knows, artist)) continue;
+			// friend must already like the artist
+			if (!likes_artist(knows, artist)) continue;
 
-	// 		// friendship must be mutual
-	// 		for (knows_offset2 = knows->knows_first;
-	// 			knows_offset2 < knows->knows_first + knows->knows_n;
-	// 			knows_offset2++) {
+			// friendship must be mutual
+			for (knows_offset2 = knows->knows_first;
+				knows_offset2 < knows->knows_first + knows->knows_n;
+				knows_offset2++) {
 			
-	// 			if (knows_map[knows_offset2] == person_offset) {
-	// 				// filter by birthday
-	// 				if (person->birthday < bdstart || person->birthday > bdend) continue; 
+				if (knows_map[knows_offset2] == person_offset) {
+					// filter by birthday
+					if (person->birthday < bdstart || person->birthday > bdend) continue; 
 
-	// 				// realloc result array if we run out of space
-	// 				if (result_length >= result_set_size) {
-	// 					result_set_size *= 2;
-	// 					results = realloc(results, result_set_size * sizeof (Result));
-	// 				}
-	// 				results[result_length].person_id = person->person_id;
-	// 				results[result_length].knows_id = knows->person_id;
-	// 				results[result_length].score = score;
-	// 				result_length++;
-	// 				break;
-	// 			}
-	// 		}
-	// 	}
-	// }
+					// realloc result array if we run out of space
+					if (result_length >= result_set_size) {
+						result_set_size *= 2;
+						results = (Result*)realloc(results, result_set_size * sizeof (Result));
+					}
+					results[result_length].person_id = person->person_id;
+					results[result_length].knows_id = knows->person_id;
+					results[result_length].score = score;
+					result_length++;
+					break;
+				}
+			}
+		}
+	}
 
 	// // sort result
 	qsort(results, result_length, sizeof(Result), &result_comparator);
