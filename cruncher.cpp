@@ -83,15 +83,18 @@ char likes_artist(Person *person, unsigned short artist) {
 }
 
 void query(unsigned short qid, unsigned short artist, unsigned short areltd[], unsigned short bdstart, unsigned short bdend) {
-	// unsigned int person_offset;
-	// unsigned long knows_offset, knows_offset2;
 
-	// Person *person, *knows;
-	// unsigned char score;
+	unsigned int person_offset;
+	unsigned long knows_offset, knows_offset2;
 
-	// unsigned int result_length = 0, result_idx, result_set_size = 1000;
-	// Result* results = malloc(result_set_size * sizeof (Result));
-	// printf("Running query %d\n", qid);
+	Person *person, *knows;
+	unsigned char score;
+
+	// allocate the default result memory
+	unsigned int result_length = 0, result_idx, result_set_size = 1000;
+	Result* results = (Result*)malloc(result_set_size * sizeof (Result));
+
+	printf("Running query %d\n", qid);
 
 	// for (person_offset = 0; person_offset < person_length/sizeof(Person); person_offset++) {
 	// 	// printf( "%d\n", person_offset);
@@ -147,13 +150,13 @@ void query(unsigned short qid, unsigned short artist, unsigned short areltd[], u
 	// }
 
 	// // sort result
-	// qsort(results, result_length, sizeof(Result), &result_comparator);
+	qsort(results, result_length, sizeof(Result), &result_comparator);
 
-	// // output
-	// for (result_idx = 0; result_idx < result_length; result_idx++) {
-	// 	fprintf(outfile, "%d|%d|%lu|%lu\n", qid, results[result_idx].score, 
-	// 		results[result_idx].person_id, results[result_idx].knows_id);
-	// }
+	// output
+	for (result_idx = 0; result_idx < result_length; result_idx++) {
+		fprintf(outfile, "%d|%d|%lu|%lu\n", qid, results[result_idx].score, 
+			results[result_idx].person_id, results[result_idx].knows_id);
+	}
 }
 
 void query_line_handler(unsigned char nfields, char** tokens) {
