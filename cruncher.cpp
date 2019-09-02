@@ -6,6 +6,9 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <iostream>
+#include <map>
+#include <set>
 
 #include "utils.h"
 
@@ -92,6 +95,48 @@ char likes_artist(Person *person, unsigned short artist)
 	return likesartist;
 }
 
+typedef std::map<unsigned long, Person *> PersonMap;
+typedef std::pair<unsigned long, Person *> PersonMapPair;
+typedef std::map<unsigned long, Person *>::iterator PersonMapIterator;
+
+PersonMap candidate_person;
+PersonMap candidate_friend;
+
+void potentially_relevant(Person *person, unsigned short artist, unsigned short areltd[])
+{
+	long interest_offset;
+	unsigned short interest;
+	unsigned short likesartist = 0;
+	std::set<unsigned short> interest_set;
+	std::set<unsigned short>::iterator it;
+
+	// build like set:
+	for (interest_offset = person->interests_first;
+		 interest_offset < person->interests_first + person->interest_n;
+		 interest_offset++)
+	{
+		interest = interest_map[interest_offset];
+		// todo, can i assume intereset ids are sorted?
+		interest_set.insert(interest);
+	}
+
+	// load only people who like (a2, a3, a4) and not a1 or a1
+	it = interest_set.find(artist);
+	if (it == interest_set.end())
+	{
+		if (get_score(person, areltd) >= 1)
+		{
+			candidate_person.insert(PersonMapPair(person->person_id, person));
+		}
+	}
+	else
+	{
+		// add to friend potential
+		candidate_friend.insert(PersonMapPair(person->person_id, person));
+	}
+	interest_set.clear();
+}
+
 void query(unsigned short qid, unsigned short artist, unsigned short areltd[], unsigned short bdstart, unsigned short bdend)
 {
 
@@ -107,12 +152,24 @@ void query(unsigned short qid, unsigned short artist, unsigned short areltd[], u
 
 	printf("Running query %d\n", qid);
 
-	int max_iterations = person_offset < person_length / sizeof(Person);
+	int max_iterations = person_length / sizeof(Person);
+	printf("Running its %d\n", max_iterations);
 
 	for (person_offset = 0; person_offset < max_iterations; person_offset++)
 	{
-
 		person = &person_map[person_offset];
+		potentially_relevant(person, artist, areltd);
+	}
+
+	printf("%d\n", candidate_person.size());
+	printf("%d\n", candidate_friend.size());
+
+	// for potential candiates, check if they know each other
+	for (PersonMapIterator it = candidate_person.begin(); it != candidate_person.end(); ++it)
+	{
+		person = it->second;
+
+		// person = &person_map[person_offset];
 
 		if (person_offset > 0 && person_offset % REPORTING_N == 0)
 		{
@@ -132,7 +189,7 @@ void query(unsigned short qid, unsigned short artist, unsigned short areltd[], u
 			 knows_offset < person->knows_first + person->knows_n;
 			 knows_offset++)
 		{
-
+			//TODO: resolve the friendship stuff :-)
 			knows = &person_map[knows_map[knows_offset]];
 			if (person->location != knows->location)
 				continue;
@@ -195,6 +252,44 @@ void query_line_handler(unsigned char nfields, char **tokens)
 
 	query(q_id, q_artist, q_relartists, q_bdaystart, q_bdayend);
 }
+
+// std::map<unsigned short, std::set<unsigned long>> build_cities_with_personids_map(Person *person_map)
+// {
+
+// 	unsigned int person_offset;
+// 	std::map<unsigned short, std::set<unsigned long>>::iterator it;
+// 	std::map<unsigned short, std::set<unsigned long>> map;
+
+// 	Person *person, *knows;
+
+// 	for (person_offset = 0; person_offset < person_length / sizeof(Person); person_offset++)
+// 	{
+// 		person = &person_map[person_offset];
+
+// 		it = map.find(person->location);
+// 		if (it == map.end())
+// 		{
+// 			// insert new
+// 			std::set<unsigned long> people;
+// 			people.insert(person->person_id);
+// 			map.insert(std::pair<unsigned short, std::set<unsigned long>>(person->location, people));
+// 		}
+// 		else
+// 		{
+// 			it->second.insert(person->person_id);
+// 		}
+// 	}
+
+// 	// // Debugging
+// 	// printf("%d \n", person_offset);
+// 	// printf("%d \n", map.size());
+// 	// for (std::map<unsigned short, std::set<unsigned long>>::iterator it = map.begin(); it != map.end(); ++it)
+// 	// {
+// 	// 	printf("%d \n",it->second.size());
+// 	// }
+
+// 	return map;
+// }
 
 int main(int argc, char *argv[])
 {
