@@ -1,10 +1,9 @@
 #define REPORTING_N 1000000
 #define LINEBUFLEN 1024
+#include <string>
 
 typedef unsigned long byteoffset;
 typedef unsigned int  entrycount;
-
-typedef unsigned char bool;
 
 
 typedef struct {
@@ -121,7 +120,7 @@ void* mmaprw(char* filename, byteoffset *filelen) {
 }
 
 char* makepath(char* dir, char* file, char* ext) {
-	char* out = malloc(1024);
+	char* out = (char*)malloc(1024);
 	sprintf(out, "%s/%s.%s", dir, file, ext);
 	return out;
 }
