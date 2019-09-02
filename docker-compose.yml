@@ -1,0 +1,10 @@
+version: '2.4'
+services:
+  gcc:
+    build:
+      context: .
+    image: gcc-cruncher
+    mem_limit: 1g
+    mem_reservation: 1g
+    volumes:
+      - ./:/opt/lsde
