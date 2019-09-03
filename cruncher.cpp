@@ -9,6 +9,7 @@
 #include <iostream>
 #include <map>
 #include <set>
+#include <typeinfo>
 
 #include "utils.h"
 
@@ -48,7 +49,26 @@ int result_comparator(const void *v1, const void *v2)
 		return 0;
 }
 
-unsigned char get_score(Person *person, unsigned short areltd[])
+std::set<Person *> read_people_by_birthday(unsigned short bdstart, unsigned short bdend)
+{
+	unsigned int person_offset;
+	unsigned int person_max_iterations = person_length / sizeof(Person);
+	std::set<Person *> select_people;
+	Person *person;
+	printf("Person.bin is %d rows long.\n", person_max_iterations);
+
+	for (person_offset = 0; person_offset < person_max_iterations; person_offset++)
+	{
+		person = &person_map[person_offset];
+		if (person->birthday < bdstart || person->birthday > bdend)
+			continue;
+		select_people.insert(person);
+	}
+	printf("Filtered Person.bin is %d rows long.\n", select_people.size());
+	return select_people;
+}
+
+unsigned char person_get_score(Person *person, unsigned short areltd[])
 {
 	long interest_offset;
 	unsigned short interest;
@@ -74,7 +94,7 @@ unsigned char get_score(Person *person, unsigned short areltd[])
 	return score;
 }
 
-char likes_artist(Person *person, unsigned short artist)
+char person_likes_artist(Person *person, unsigned short artist)
 {
 	long interest_offset;
 	unsigned short interest;
@@ -95,146 +115,38 @@ char likes_artist(Person *person, unsigned short artist)
 	return likesartist;
 }
 
-typedef std::map<unsigned long, Person *> PersonMap;
-typedef std::pair<unsigned long, Person *> PersonMapPair;
-typedef std::map<unsigned long, Person *>::iterator PersonMapIterator;
-
-PersonMap candidate_person;
-PersonMap candidate_friend;
-
-void potentially_relevant(Person *person, unsigned short artist, unsigned short areltd[])
+std::set<Person *> filter_by_interests(std::set<Person *> selected_people, unsigned short artist, unsigned short areltd[])
 {
+
 	long interest_offset;
 	unsigned short interest;
-	unsigned short likesartist = 0;
-	std::set<unsigned short> interest_set;
-	std::set<unsigned short>::iterator it;
+	unsigned char score;
+	std::set<Person *> filtered;
 
-	// build like set:
-	for (interest_offset = person->interests_first;
-		 interest_offset < person->interests_first + person->interest_n;
-		 interest_offset++)
+	printf("Filtered Person.bin is %d rows long.\n", selected_people.size());
+	for (const auto current_person : selected_people)
 	{
-		interest = interest_map[interest_offset];
-		// todo, can i assume intereset ids are sorted?
-		interest_set.insert(interest);
-	}
+		// person must not like artist yet
+		if (person_likes_artist(current_person, artist))
+			continue;
 
-	// load only people who like (a2, a3, a4) and not a1 or a1
-	it = interest_set.find(artist);
-	if (it == interest_set.end())
-	{
-		if (get_score(person, areltd) >= 1)
-		{
-			candidate_person.insert(PersonMapPair(person->person_id, person));
-		}
+		// person must like some of these other guys
+		score = person_get_score(current_person, areltd);
+		if (score < 1)
+			continue;
+
+		// add to filterd:
+		filtered.insert(current_person);
 	}
-	else
-	{
-		// add to friend potential
-		candidate_friend.insert(PersonMapPair(person->person_id, person));
-	}
-	interest_set.clear();
+	printf("Refiltered Person.bin is %d rows long.\n", filtered.size());
+
+	return filtered;
 }
 
 void query(unsigned short qid, unsigned short artist, unsigned short areltd[], unsigned short bdstart, unsigned short bdend)
 {
-
-	unsigned int person_offset;
-	unsigned long knows_offset, knows_offset2;
-
-	Person *person, *knows;
-	unsigned char score;
-
-	// allocate the default result memory
-	unsigned int result_length = 0, result_idx, result_set_size = 1000;
-	Result *results = (Result *)malloc(result_set_size * sizeof(Result));
-
-	printf("Running query %d\n", qid);
-
-	int max_iterations = person_length / sizeof(Person);
-	printf("Running its %d\n", max_iterations);
-
-	for (person_offset = 0; person_offset < max_iterations; person_offset++)
-	{
-		person = &person_map[person_offset];
-		potentially_relevant(person, artist, areltd);
-	}
-
-	printf("%d\n", candidate_person.size());
-	printf("%d\n", candidate_friend.size());
-
-	// for potential candiates, check if they know each other
-	for (PersonMapIterator it = candidate_person.begin(); it != candidate_person.end(); ++it)
-	{
-		person = it->second;
-
-		// person = &person_map[person_offset];
-
-		if (person_offset > 0 && person_offset % REPORTING_N == 0)
-		{
-			printf("%.2f%%\n", 100 * (person_offset * 1.0 / (person_length / sizeof(Person))));
-		}
-		// person must like some of these other guys
-		score = get_score(person, areltd);
-		if (score < 1)
-			continue;
-
-		// person must not like artist yet
-		if (likes_artist(person, artist))
-			continue;
-
-		// check if friend lives in same city and likes artist
-		for (knows_offset = person->knows_first;
-			 knows_offset < person->knows_first + person->knows_n;
-			 knows_offset++)
-		{
-			//TODO: resolve the friendship stuff :-)
-			knows = &person_map[knows_map[knows_offset]];
-			if (person->location != knows->location)
-				continue;
-
-			// friend must already like the artist
-			if (!likes_artist(knows, artist))
-				continue;
-
-			// friendship must be mutual
-			for (knows_offset2 = knows->knows_first;
-				 knows_offset2 < knows->knows_first + knows->knows_n;
-				 knows_offset2++)
-			{
-
-				if (knows_map[knows_offset2] == person_offset)
-				{
-					// filter by birthday
-					if (person->birthday < bdstart || person->birthday > bdend)
-						continue;
-
-					// realloc result array if we run out of space
-					if (result_length >= result_set_size)
-					{
-						result_set_size *= 2;
-						results = (Result *)realloc(results, result_set_size * sizeof(Result));
-					}
-					results[result_length].person_id = person->person_id;
-					results[result_length].knows_id = knows->person_id;
-					results[result_length].score = score;
-					result_length++;
-					break;
-				}
-			}
-		}
-	}
-
-	// // sort result
-	qsort(results, result_length, sizeof(Result), &result_comparator);
-
-	// output
-	for (result_idx = 0; result_idx < result_length; result_idx++)
-	{
-		fprintf(outfile, "%d|%d|%lu|%lu\n", qid, results[result_idx].score,
-				results[result_idx].person_id, results[result_idx].knows_id);
-	}
+	auto select_people = read_people_by_birthday(bdstart, bdend);
+	auto filtered_people = filter_by_interests(select_people, artist, areltd);
 }
 
 void query_line_handler(unsigned char nfields, char **tokens)
@@ -252,44 +164,6 @@ void query_line_handler(unsigned char nfields, char **tokens)
 
 	query(q_id, q_artist, q_relartists, q_bdaystart, q_bdayend);
 }
-
-// std::map<unsigned short, std::set<unsigned long>> build_cities_with_personids_map(Person *person_map)
-// {
-
-// 	unsigned int person_offset;
-// 	std::map<unsigned short, std::set<unsigned long>>::iterator it;
-// 	std::map<unsigned short, std::set<unsigned long>> map;
-
-// 	Person *person, *knows;
-
-// 	for (person_offset = 0; person_offset < person_length / sizeof(Person); person_offset++)
-// 	{
-// 		person = &person_map[person_offset];
-
-// 		it = map.find(person->location);
-// 		if (it == map.end())
-// 		{
-// 			// insert new
-// 			std::set<unsigned long> people;
-// 			people.insert(person->person_id);
-// 			map.insert(std::pair<unsigned short, std::set<unsigned long>>(person->location, people));
-// 		}
-// 		else
-// 		{
-// 			it->second.insert(person->person_id);
-// 		}
-// 	}
-
-// 	// // Debugging
-// 	// printf("%d \n", person_offset);
-// 	// printf("%d \n", map.size());
-// 	// for (std::map<unsigned short, std::set<unsigned long>>::iterator it = map.begin(); it != map.end(); ++it)
-// 	// {
-// 	// 	printf("%d \n",it->second.size());
-// 	// }
-
-// 	return map;
-// }
 
 int main(int argc, char *argv[])
 {
