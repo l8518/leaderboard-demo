@@ -49,11 +49,11 @@ int result_comparator(const void *v1, const void *v2)
 		return 0;
 }
 
-std::set<Person *> read_people_by_birthday(unsigned short bdstart, unsigned short bdend)
+std::set<unsigned int> read_people_by_birthday(unsigned short bdstart, unsigned short bdend)
 {
 	unsigned int person_offset;
 	unsigned int person_max_iterations = person_length / sizeof(Person);
-	std::set<Person *> select_people;
+	std::set<unsigned int> select_people;
 	Person *person;
 	printf("Person.bin is %d rows long.\n", person_max_iterations);
 
@@ -62,7 +62,7 @@ std::set<Person *> read_people_by_birthday(unsigned short bdstart, unsigned shor
 		person = &person_map[person_offset];
 		if (person->birthday < bdstart || person->birthday > bdend)
 			continue;
-		select_people.insert(person);
+		select_people.insert(person_offset);
 	}
 	printf("Filtered Person.bin is %d rows long.\n", select_people.size());
 	return select_people;
@@ -115,17 +115,18 @@ char person_likes_artist(Person *person, unsigned short artist)
 	return likesartist;
 }
 
-std::set<Person *> filter_by_interests(std::set<Person *> selected_people, unsigned short artist, unsigned short areltd[])
+std::set<unsigned int> filter_by_interests(std::set<unsigned int> selected_people, unsigned short artist, unsigned short areltd[])
 {
 
 	long interest_offset;
 	unsigned short interest;
 	unsigned char score;
-	std::set<Person *> filtered;
+	std::set<unsigned int> filtered;
 
 	printf("Filtered Person.bin is %d rows long.\n", selected_people.size());
-	for (const auto current_person : selected_people)
+	for (const auto person_offset : selected_people)
 	{
+		Person *current_person = &person_map[person_offset];
 		// person must not like artist yet
 		if (person_likes_artist(current_person, artist))
 			continue;
@@ -136,17 +137,96 @@ std::set<Person *> filter_by_interests(std::set<Person *> selected_people, unsig
 			continue;
 
 		// add to filterd:
-		filtered.insert(current_person);
+		filtered.insert(person_offset);
 	}
 	printf("Refiltered Person.bin is %d rows long.\n", filtered.size());
 
 	return filtered;
 }
 
+std::set<Person *> read_friends_by_interest(unsigned short bdstart, unsigned short bdend)
+{
+	unsigned int person_offset;
+	unsigned int person_max_iterations = person_length / sizeof(Person);
+	std::set<Person *> select_people;
+	Person *person;
+	printf("Person.bin is %d rows long.\n", person_max_iterations);
+
+	for (person_offset = 0; person_offset < person_max_iterations; person_offset++)
+	{
+		person = &person_map[person_offset];
+		if (person->birthday < bdstart || person->birthday > bdend)
+			continue;
+		select_people.insert(person);
+	}
+	printf("Filtered Person.bin is %d rows long.\n", select_people.size());
+	return select_people;
+}
+
+void legacy_query(unsigned short qid, std::set<unsigned int> selected_people, unsigned short artist, unsigned short areltd[]) {
+	unsigned long knows_offset, knows_offset2;
+
+	Person *person, *knows;
+
+	unsigned int result_length = 0, result_idx, result_set_size = 1000;
+	Result* results = (Result*)malloc(result_set_size * sizeof (Result));
+	
+	for (const auto person_offset : selected_people) {
+		person = &person_map[person_offset];
+
+		if (person_offset > 0 && person_offset % REPORTING_N == 0) {
+			printf("%.2f%%\n", 100 * (person_offset * 1.0/(person_length/sizeof(Person))));
+		}
+
+		// check if friend lives in same city and likes artist 
+		for (knows_offset = person->knows_first; 
+			knows_offset < person->knows_first + person->knows_n; 
+			knows_offset++) {
+
+			knows = &person_map[knows_map[knows_offset]];
+			if (person->location != knows->location) continue; 
+
+			// friend must already like the artist
+			if (!person_likes_artist(knows, artist)) continue;
+
+			// friendship must be mutual
+			for (knows_offset2 = knows->knows_first;
+				knows_offset2 < knows->knows_first + knows->knows_n;
+				knows_offset2++) {
+			
+				if (knows_map[knows_offset2] == person_offset) {
+					// realloc result array if we run out of space
+					if (result_length >= result_set_size) {
+						result_set_size *= 2;
+						results = (Result *)realloc(results, result_set_size * sizeof (Result));
+					}
+					results[result_length].person_id = person->person_id;
+					results[result_length].knows_id = knows->person_id;
+					results[result_length].score = person_get_score(person, areltd);;
+					result_length++;
+					break;
+				}
+			}
+		}
+	}
+
+	// sort result
+	qsort(results, result_length, sizeof(Result), &result_comparator);
+
+	// output
+	for (result_idx = 0; result_idx < result_length; result_idx++) {
+		fprintf(outfile, "%d|%d|%lu|%lu\n", qid, results[result_idx].score, 
+			results[result_idx].person_id, results[result_idx].knows_id);
+	}
+}
+
 void query(unsigned short qid, unsigned short artist, unsigned short areltd[], unsigned short bdstart, unsigned short bdend)
 {
+	printf("Running query %d\n", qid);
 	auto select_people = read_people_by_birthday(bdstart, bdend);
 	auto filtered_people = filter_by_interests(select_people, artist, areltd);
+
+	legacy_query(qid, filtered_people, artist, areltd);
 }
 
 void query_line_handler(unsigned char nfields, char **tokens)
