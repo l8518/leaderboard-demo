@@ -10,6 +10,7 @@
 #include <map>
 #include <set>
 #include <typeinfo>
+#include <chrono>
 
 #include "utils.h"
 
@@ -267,6 +268,9 @@ int main(int argc, char *argv[])
 	}
 	const char *query_path = (argv[1]);
 
+	// take time:
+	auto t1 = std::chrono::high_resolution_clock::now();
+
 	/* memory-map files created by loader */
 	person_map = (Person *)mmapr(makepath((char *)query_path, (char *)"person", (char *)"bin"), &person_length);
 	interest_map = (unsigned short *)mmapr(makepath((char *)query_path, (char *)"interest", (char *)"bin"), &interest_length);
@@ -281,5 +285,13 @@ int main(int argc, char *argv[])
 
 	/* run through queries */
 	parse_csv(argv[2], &query_line_handler);
+
+	//take time:
+	auto t2 = std::chrono::high_resolution_clock::now();
+	auto duration = std::chrono::duration_cast<std::chrono::microseconds>( t2 - t1 ).count();
+
+	printf("Execution took microseconds: %d \n", duration);
+	printf("Execution took seconds: %d \n", duration / 1000000);
+	printf("Execution took minutes : %d \n", duration / 1000000 / 60);
 	return 0;
 }
