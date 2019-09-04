@@ -159,8 +159,8 @@ std::map<unsigned long, std::set<unsigned int>> read_friends_by_interest(unsigne
 		person_friend = &person_map[person_friend_offset];
 
 		// potential friend must like artist
-		// if (!person_likes_artist(person_friend, artist))
-		// 	continue;
+		if (!person_likes_artist(person_friend, artist))
+			continue;
 		
 		for (knows_offset = person_friend->knows_first; 
 			knows_offset < person_friend->knows_first + person_friend->knows_n; 
@@ -201,11 +201,8 @@ void legacy_query(unsigned short qid, std::set<unsigned int> selected_people, un
 			unsigned int person_friend_offset = knows_map[knows_offset];
 			if (person->location != knows->location) continue; 
 
-			// friend must already like the artist
-			if (!person_likes_artist(knows, artist)) continue;
-
-			// // check if friend likes a1 too, if not abroad
-			// if (friends_friends_map.find(person_friend_offset) == friends_friends_map.end()) continue;
+			// check if friend likes a1 too, if not abroad
+			if (friends_friends_map.find(person_friend_offset) == friends_friends_map.end()) continue;
 						
 			// check if friendship is mutal:
 			auto friends_friends = friends_friends_map[person_friend_offset];
