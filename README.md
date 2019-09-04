@@ -12,5 +12,6 @@
 
 1. Compile with -pg
 2. Run program (now gmon.out should exist)
-3. Execute `gprof cruncher gmon.out > analysis.txt`
+   - Use the profiling version of cruncher: `./cruncher-profile dataset-sf100 queries-test.csv out.csv`
+3. Execute `gprof cruncher-profile gmon.out > analysis.txt`
 4. Anaylze 🤓

@@ -1,8 +1,11 @@
 loader
 cruncher
+cruncher-profile
 reorg
 .DS_Store
 
 dataset-sf100
 dataset-sf3000
 out.csv
+gmon.out
+*.txt
