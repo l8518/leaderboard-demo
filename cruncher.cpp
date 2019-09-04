@@ -7,7 +7,9 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <iostream>
+#include <algorithm>
 #include <map>
+#include <vector>
 #include <unordered_map>
 #include <set>
 #include <typeinfo>
@@ -31,25 +33,26 @@ unsigned long person_length, knows_length, interest_length;
 
 FILE *outfile;
 
-int result_comparator(const void *v1, const void *v2)
+struct compare_results
 {
-	Result *r1 = (Result *)v1;
-	Result *r2 = (Result *)v2;
-	if (r1->score > r2->score)
-		return -1;
-	else if (r1->score < r2->score)
-		return +1;
-	else if (r1->person_id < r2->person_id)
-		return -1;
-	else if (r1->person_id > r2->person_id)
-		return +1;
-	else if (r1->knows_id < r2->knows_id)
-		return -1;
-	else if (r1->knows_id > r2->knows_id)
-		return +1;
-	else
-		return 0;
-}
+    inline bool operator() (const Result& r1, const Result& r2)
+    {
+		if (r1.score > r2.score)
+			return true;
+		else if (r1.score < r2.score)
+			return false;
+		else if (r1.person_id < r2.person_id)
+			return true;
+		else if (r1.person_id > r2.person_id)
+			return false;
+		else if (r1.knows_id < r2.knows_id)
+			return true;
+		else if (r1.knows_id > r2.knows_id)
+			return false;
+		else
+			return false;
+    }
+};
 
 std::set<unsigned int> read_people_by_birthday(unsigned short bdstart, unsigned short bdend)
 {
@@ -185,8 +188,8 @@ void legacy_query(unsigned short qid, std::set<unsigned int> selected_people, un
 	Person *person, *knows;
 
 	unsigned int result_length = 0, result_idx, result_set_size = 1000;
-	Result* results = (Result*)malloc(result_set_size * sizeof (Result));
-	
+	std::vector<Result> results;
+
 	for (const auto person_offset : selected_people) {
 		person = &person_map[person_offset];
 
@@ -211,26 +214,25 @@ void legacy_query(unsigned short qid, std::set<unsigned int> selected_people, un
 			
 			if (friends_friends.find(person_offset) != friends_friends.end() ) {
 					// realloc result array if we run out of space
-					if (result_length >= result_set_size) {
-						result_set_size *= 2;
-						results = (Result *)realloc(results, result_set_size * sizeof (Result));
-					}
-					results[result_length].person_id = person->person_id;
-					results[result_length].knows_id = knows->person_id;
-					// TODO, move calculation (as we already did that somewhere else)
-					results[result_length].score = person_get_score(person, areltd);
-					result_length++;
+					Result res;
+					res.person_id = person->person_id;
+					res.knows_id = knows->person_id;
+					// todo, move calculation to other place.
+					res.score = person_get_score(person, areltd);
+					results.push_back(res);
 			}
 		}
 	}
 
-	// sort result
-	qsort(results, result_length, sizeof(Result), &result_comparator);
+	std::sort(results.begin(), results.end(), compare_results());
 
-	// output
-	for (result_idx = 0; result_idx < result_length; result_idx++) {
-		fprintf(outfile, "%d|%d|%lu|%lu\n", qid, results[result_idx].score, 
-			results[result_idx].person_id, results[result_idx].knows_id);
+	// // sort result
+	// qsort(results, result_length, sizeof(Result), &result_comparator);
+
+	// // output
+	for (const auto &row: results) {
+		fprintf(outfile, "%d|%d|%lu|%lu\n", qid, row.score, 
+			row.person_id, row.knows_id);
 	}
 }
 
