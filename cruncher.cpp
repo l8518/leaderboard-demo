@@ -177,7 +177,7 @@ std::map<unsigned long, std::set<unsigned int>> read_friends_by_interest(unsigne
 }
 
 
-void legacy_query(unsigned short qid, std::set<unsigned int> selected_people, unsigned short artist, unsigned short areltd[], std::map<unsigned long, std::set<unsigned int>> friends_friends_map, unsigned short bdstart, unsigned short bdend) {
+void legacy_query(unsigned short qid, std::set<unsigned int> selected_people, unsigned short artist, unsigned short areltd[], std::map<unsigned long, std::set<unsigned int>> friends_friends_map) {
 	unsigned long knows_offset, knows_offset2;
 
 	Person *person, *knows;
@@ -215,7 +215,8 @@ void legacy_query(unsigned short qid, std::set<unsigned int> selected_people, un
 					}
 					results[result_length].person_id = person->person_id;
 					results[result_length].knows_id = knows->person_id;
-					results[result_length].score = person_get_score(person, areltd);;
+					// TODO, move calculation (as we already did that somewhere else)
+					results[result_length].score = person_get_score(person, areltd);
 					result_length++;
 			}
 		}
@@ -238,7 +239,7 @@ void query(unsigned short qid, unsigned short artist, unsigned short areltd[], u
 	auto filtered_people = filter_by_interests(select_people, artist, areltd); // everyone of those has a score > 1.
 	auto filtered_friends_with_friends = read_friends_by_interest(artist, filtered_people);
 
-	legacy_query(qid, filtered_people, artist, areltd, filtered_friends_with_friends, bdstart, bdend);
+	legacy_query(qid, filtered_people, artist, areltd, filtered_friends_with_friends);
 }
 
 void query_line_handler(unsigned char nfields, char **tokens)
