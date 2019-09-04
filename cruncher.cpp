@@ -25,6 +25,8 @@
 #define QUERY_FIELD_BS 5
 #define QUERY_FIELD_BE 6
 
+typedef std::map<unsigned int, unsigned char> PersonMap;
+
 Person *person_map;
 unsigned int *knows_map;
 unsigned short *interest_map;
@@ -120,13 +122,13 @@ char person_likes_artist(Person *person, unsigned short artist)
 	return likesartist;
 }
 
-std::set<unsigned int> filter_by_interests(std::set<unsigned int> selected_people, unsigned short artist, unsigned short areltd[])
+PersonMap filter_by_interests(std::set<unsigned int> selected_people, unsigned short artist, unsigned short areltd[])
 {
 
 	long interest_offset;
 	unsigned short interest;
 	unsigned char score;
-	std::set<unsigned int> filtered;
+	PersonMap filtered;
 
 	printf("Filtered Person.bin is %d rows long.\n", selected_people.size());
 	for (const auto person_offset : selected_people)
@@ -142,14 +144,14 @@ std::set<unsigned int> filter_by_interests(std::set<unsigned int> selected_peopl
 			continue;
 
 		// add to filterd:
-		filtered.insert(person_offset);
+		filtered[person_offset] = score;
 	}
 	printf("Refiltered Person.bin is %d rows long.\n", filtered.size());
 
 	return filtered;
 }
 
-std::unordered_map<unsigned long, std::set<unsigned int>> read_friends_by_interest(unsigned short artist , std::set<unsigned int> filtered_people)
+std::unordered_map<unsigned long, std::set<unsigned int>> read_friends_by_interest(unsigned short artist , PersonMap filtered_people)
 {
 	unsigned int person_friend_offset;
 	unsigned int person_max_iterations = person_length / sizeof(Person);
@@ -182,7 +184,7 @@ std::unordered_map<unsigned long, std::set<unsigned int>> read_friends_by_intere
 }
 
 
-void legacy_query(unsigned short qid, std::set<unsigned int> selected_people, unsigned short artist, unsigned short areltd[], std::unordered_map<unsigned long, std::set<unsigned int>> friends_friends_map) {
+void legacy_query(unsigned short qid, PersonMap selected_people, unsigned short artist, unsigned short areltd[], std::unordered_map<unsigned long, std::set<unsigned int>> friends_friends_map) {
 	unsigned long knows_offset, knows_offset2;
 
 	Person *person, *knows;
@@ -190,7 +192,8 @@ void legacy_query(unsigned short qid, std::set<unsigned int> selected_people, un
 	unsigned int result_length = 0, result_idx, result_set_size = 1000;
 	std::vector<Result> results;
 
-	for (const auto person_offset : selected_people) {
+	for (const auto person_map_pair : selected_people) {
+		unsigned int person_offset = person_map_pair.first;
 		person = &person_map[person_offset];
 
 		if (person_offset > 0 && person_offset % REPORTING_N == 0) {
@@ -218,7 +221,7 @@ void legacy_query(unsigned short qid, std::set<unsigned int> selected_people, un
 					res.person_id = person->person_id;
 					res.knows_id = knows->person_id;
 					// todo, move calculation to other place.
-					res.score = person_get_score(person, areltd);
+					res.score = person_map_pair.second;
 					results.push_back(res);
 			}
 		}
