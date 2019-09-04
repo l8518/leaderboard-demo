@@ -6,5 +6,6 @@ services:
     image: gcc-cruncher
     mem_limit: 1g
     mem_reservation: 1g
+    cpu_count: 1
     volumes:
       - ./:/opt/lsde
