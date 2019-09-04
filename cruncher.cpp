@@ -8,6 +8,7 @@
 #include <unistd.h>
 #include <iostream>
 #include <map>
+#include <unordered_map>
 #include <set>
 #include <typeinfo>
 #include <chrono>
@@ -145,13 +146,13 @@ std::set<unsigned int> filter_by_interests(std::set<unsigned int> selected_peopl
 	return filtered;
 }
 
-std::map<unsigned long, std::set<unsigned int>> read_friends_by_interest(unsigned short artist , std::set<unsigned int> filtered_people)
+std::unordered_map<unsigned long, std::set<unsigned int>> read_friends_by_interest(unsigned short artist , std::set<unsigned int> filtered_people)
 {
 	unsigned int person_friend_offset;
 	unsigned int person_max_iterations = person_length / sizeof(Person);
 	// person_max_iterations = 250;
 	unsigned long knows_offset, knows_offset2;
-	std::map<unsigned long, std::set<unsigned int>> select_people;
+	std::unordered_map<unsigned long, std::set<unsigned int>> select_people;
 	Person *person_friend, *knows;
 	printf("Person.bin is %d rows long.\n", person_max_iterations);
 
@@ -178,7 +179,7 @@ std::map<unsigned long, std::set<unsigned int>> read_friends_by_interest(unsigne
 }
 
 
-void legacy_query(unsigned short qid, std::set<unsigned int> selected_people, unsigned short artist, unsigned short areltd[], std::map<unsigned long, std::set<unsigned int>> friends_friends_map) {
+void legacy_query(unsigned short qid, std::set<unsigned int> selected_people, unsigned short artist, unsigned short areltd[], std::unordered_map<unsigned long, std::set<unsigned int>> friends_friends_map) {
 	unsigned long knows_offset, knows_offset2;
 
 	Person *person, *knows;
