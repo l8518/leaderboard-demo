@@ -60,8 +60,8 @@ std::set<unsigned int> read_people_by_birthday(unsigned short bdstart, unsigned 
 	for (person_offset = 0; person_offset < person_max_iterations; person_offset++)
 	{
 		person = &person_map[person_offset];
-		// if (person->birthday < bdstart || person->birthday > bdend)
-		// 	continue;
+		if (person->birthday < bdstart || person->birthday > bdend)
+			continue;
 		select_people.insert(person_offset);
 	}
 	printf("Filtered Person.bin is %d rows long.\n", select_people.size());
@@ -208,10 +208,6 @@ void legacy_query(unsigned short qid, std::set<unsigned int> selected_people, un
 			auto friends_friends = friends_friends_map[person_friend_offset];
 			
 			if (friends_friends.find(person_offset) != friends_friends.end() ) {
-
-					// filter by birthday
-					if (person->birthday < bdstart || person->birthday > bdend) continue; 
-
 					// realloc result array if we run out of space
 					if (result_length >= result_set_size) {
 						result_set_size *= 2;
