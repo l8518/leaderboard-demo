@@ -2,7 +2,7 @@
 all: cruncher cruncher-profile cruncher-profile-wo # reorg
 
 cruncher: cruncher.cpp utils.h
-	g++ -I. -O3 -o cruncher cruncher.cpp
+	g++ -I. -std=c++11 -O3 -o cruncher cruncher.cpp
 
 cruncher-profile: cruncher.cpp utils.h
 	g++ -pg -I. -O3 -o cruncher-profile cruncher.cpp
