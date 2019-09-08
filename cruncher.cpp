@@ -116,13 +116,21 @@ char person_likes_artist(Person *person, unsigned short artist)
 	return likesartist;
 }
 
-std::set<unsigned int> filter_by_interests(std::set<unsigned int> selected_people, unsigned short artist, unsigned short areltd[])
+typedef struct {
+	unsigned long  person_id;
+	unsigned short location;
+	unsigned long  knows_first;
+	unsigned short knows_n;
+	char score;
+} QueryPerson;
+
+std::map<unsigned int, QueryPerson> filter_by_interests(std::set<unsigned int> selected_people, unsigned short artist, unsigned short areltd[])
 {
 
 	long interest_offset;
 	unsigned short interest;
 	unsigned char score;
-	std::set<unsigned int> filtered;
+	std::map<unsigned int, QueryPerson> filtered;
 
 	printf("Filtered Person.bin is %d rows long.\n", selected_people.size());
 	for (const auto person_offset : selected_people)
@@ -138,20 +146,30 @@ std::set<unsigned int> filter_by_interests(std::set<unsigned int> selected_peopl
 			continue;
 
 		// add to filterd:
-		filtered.insert(person_offset);
+		filtered[person_offset].person_id = current_person->person_id;
+		filtered[person_offset].location = current_person->location;
+		filtered[person_offset].knows_first = current_person->knows_first;
+		filtered[person_offset].knows_n = current_person->knows_n;
+		filtered[person_offset].score = score;
 	}
 	printf("Refiltered Person.bin is %d rows long.\n", filtered.size());
 
 	return filtered;
 }
 
-std::map<unsigned long, std::set<unsigned int>> read_friends_by_interest(unsigned short artist , std::set<unsigned int> filtered_people)
+typedef struct {
+	unsigned long  person_id;
+	unsigned short location;
+	std::set<unsigned int> person_friends;
+} QueryFriend;
+
+std::map<unsigned long, QueryFriend> read_friends_by_interest(unsigned short artist , std::map<unsigned int, QueryPerson> filtered_people)
 {
 	unsigned int person_friend_offset;
 	unsigned int person_max_iterations = person_length / sizeof(Person);
 	// person_max_iterations = 250;
 	unsigned long knows_offset, knows_offset2;
-	std::map<unsigned long, std::set<unsigned int>> select_people;
+	std::map<unsigned long, QueryFriend> select_people;
 	Person *person_friend, *knows;
 	printf("Person.bin is %d rows long.\n", person_max_iterations);
 
@@ -168,8 +186,11 @@ std::map<unsigned long, std::set<unsigned int>> read_friends_by_interest(unsigne
 			knows_offset++) {
 
 			unsigned int person_person_offset = knows_map[knows_offset];
+
 			if (filtered_people.find(person_person_offset) != filtered_people.end()) {
-				select_people[person_friend_offset].insert(person_person_offset);
+				select_people[person_friend_offset].person_id = person_friend->person_id;
+				select_people[person_friend_offset].location = person_friend->location;
+				select_people[person_friend_offset].person_friends.insert(person_person_offset);
 			}
 		}
 	}
@@ -178,35 +199,41 @@ std::map<unsigned long, std::set<unsigned int>> read_friends_by_interest(unsigne
 }
 
 
-void legacy_query(unsigned short qid, std::set<unsigned int> selected_people, unsigned short artist, unsigned short areltd[], std::map<unsigned long, std::set<unsigned int>> friends_friends_map) {
+void legacy_query(unsigned short qid, std::map<unsigned int, QueryPerson> selected_people, unsigned short artist, unsigned short areltd[], std::map<unsigned long, QueryFriend> friends_friends_map) {
 	unsigned long knows_offset, knows_offset2;
 
-	Person *person, *knows;
+	// Person *person, *knows;
 
 	unsigned int result_length = 0, result_idx, result_set_size = 1000;
 	Result* results = (Result*)malloc(result_set_size * sizeof (Result));
 	
-	for (const auto person_offset : selected_people) {
-		person = &person_map[person_offset];
+	for (const auto p : selected_people) {
+		unsigned int  person_offset = p.first;
+		QueryPerson qp = p.second;
+		
+		// person = &person_map[person_offset];
+
 
 		if (person_offset > 0 && person_offset % REPORTING_N == 0) {
 			printf("%.2f%%\n", 100 * (person_offset * 1.0/(person_length/sizeof(Person))));
 		}
 
 		// check if friend lives in same city and likes artist 
-		for (knows_offset = person->knows_first; 
-			knows_offset < person->knows_first + person->knows_n; 
+		for (knows_offset = qp.knows_first; 
+			knows_offset < qp.knows_first + qp.knows_n; 
 			knows_offset++) {
-
-			knows = &person_map[knows_map[knows_offset]];
+			
 			unsigned int person_friend_offset = knows_map[knows_offset];
-			if (person->location != knows->location) continue; 
 
 			// check if friend likes a1 too, if not abroad
 			if (friends_friends_map.find(person_friend_offset) == friends_friends_map.end()) continue;
-						
+
+			QueryFriend qkp = friends_friends_map[person_friend_offset];
+			
+			if (qp.location != qkp.location) continue;
+
 			// check if friendship is mutal:
-			auto friends_friends = friends_friends_map[person_friend_offset];
+			auto friends_friends = qkp.person_friends;
 			
 			if (friends_friends.find(person_offset) != friends_friends.end() ) {
 					// realloc result array if we run out of space
@@ -214,10 +241,9 @@ void legacy_query(unsigned short qid, std::set<unsigned int> selected_people, un
 						result_set_size *= 2;
 						results = (Result *)realloc(results, result_set_size * sizeof (Result));
 					}
-					results[result_length].person_id = person->person_id;
-					results[result_length].knows_id = knows->person_id;
-					// TODO, move calculation (as we already did that somewhere else)
-					results[result_length].score = person_get_score(person, areltd);
+					results[result_length].person_id = qp.person_id;
+					results[result_length].knows_id = qkp.person_id;
+					results[result_length].score = qp.score;
 					result_length++;
 			}
 		}
