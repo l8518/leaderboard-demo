@@ -293,7 +293,7 @@ int main(int argc, char *argv[])
 		exit(1);
 	}
 	const char *query_path = (argv[1]);
-
+	printf("Starting cruncher \n");
 	// take time:
 	auto t1 = std::chrono::high_resolution_clock::now();
 
@@ -319,5 +319,6 @@ int main(int argc, char *argv[])
 	printf("Execution took microseconds: %d \n", duration);
 	printf("Execution took seconds: %d \n", duration / 1000000);
 	printf("Execution took minutes : %d \n", duration / 1000000 / 60);
+	printf("Finished cruncher \n");
 	return 0;
 }

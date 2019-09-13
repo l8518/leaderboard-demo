@@ -116,6 +116,8 @@ void filter_person_location(unsigned short* location_arr, char * folder) {
 
 int main(int argc, char *argv[]) {
 
+	printf("Starting reorg \n");
+
 	char* folder = argv[1];
 	char* person_output_file   = makepath((char*)argv[1], (char*)"person",   (char*)"bin");
 	char* interest_output_file = makepath((char*)argv[1], (char*)"interest", (char*)"bin");
@@ -127,6 +129,8 @@ int main(int argc, char *argv[]) {
 	unsigned short* location_arr = prepare_person_location_bin();
 	filter_person_location(location_arr, folder);
 	// location_map = (LocationBin *)mmapr((char*)"person_location.bin", &person_location_length);
+
+	printf("Starting reorg \n");
 	return 0;
 }
 
