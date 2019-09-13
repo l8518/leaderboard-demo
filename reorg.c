@@ -4,7 +4,7 @@
 #include <sys/stat.h>
 #include <sys/mman.h>
 
-#include "utils.h"
+#include "utilsc.h"
 // Type Defs:
 // typedef struct {
 // 	unsigned short location;
@@ -20,30 +20,30 @@ FILE *outfile;
 
 
 
-/**
- * Prepare a bin file, that only contains the location and the person offset (implicitly)
- * */
-unsigned short * prepare_person_location_bin() {
+// /**
+//  * Prepare a bin file, that only contains the location and the person offset (implicitly)
+//  * */
+// unsigned short * prepare_person_location_bin() {
 
-	unsigned int i, max_i;
-	max_i = person_length / sizeof(Person);
-	Person *p;
-	// LocationBin* results = (LocationBin*)malloc(max_i * sizeof (LocationBin));
-	// unsigned short location_arr[max_i];
+// 	unsigned int i, max_i;
+// 	max_i = person_length / sizeof(Person);
+// 	Person *p;
+// 	// LocationBin* results = (LocationBin*)malloc(max_i * sizeof (LocationBin));
+// 	// unsigned short location_arr[max_i];
 
-	unsigned short* location_arr = new unsigned short[max_i];
+// 	unsigned short* location_arr[max_i];
 
-	for (i = 0; i < max_i; i++)
-		location_arr[i] = (&person_map[i])->location;
+// 	for (i = 0; i < max_i; i++)
+// 		location_arr[i] = (&person_map[i])->location;
 
-	// outfile = fopen("person_location.bin", "w");
-	// 	for (i = 0; i < max_i; i++)
-	// // 	fprintf(outfile, "%hu\n", results[i].location);
+// 	// outfile = fopen("person_location.bin", "w");
+// 	// 	for (i = 0; i < max_i; i++)
+// 	// // 	fprintf(outfile, "%hu\n", results[i].location);
 
-	return location_arr;
-}
+// 	return location_arr;
+// }
 
-void filter_person_location(unsigned short* location_arr, char * folder) {
+void filter_person_location() {
 
 	// FILE *knows_outfile = fopen("location_knows.raw", "w");
 	// FILE *person_location_outfile = fopen("location_person.raw", "w");
@@ -59,7 +59,7 @@ void filter_person_location(unsigned short* location_arr, char * folder) {
 
 	max_i = person_length / sizeof(Person);
 	Person *p, *k;
-	Person *new_p = new Person();
+	Person *new_p = (Person *) malloc(sizeof(Person));
 	int total = 0;
 
 
@@ -91,7 +91,6 @@ void filter_person_location(unsigned short* location_arr, char * folder) {
 			}
 		}
 
-		if (true) {
 			// Write Binary Version:
 			
 			new_p->person_id = (unsigned long)p->person_id;
@@ -109,7 +108,6 @@ void filter_person_location(unsigned short* location_arr, char * folder) {
 			//  new_p->person_id, new_p->birthday, new_p->location, new_p->knows_first, new_p->knows_n,
 			//  new_p->interests_first, new_p->interest_n
 			//  ); //TODO: DEBUG ONLY
-		}
 	}
 	printf("total person: %d \n", max_i);
 	printf("total: %d \n", total);
@@ -127,8 +125,8 @@ int main(int argc, char *argv[]) {
 	person_map = (Person *)mmapr(person_output_file, &person_length);
 	knows_map = (unsigned int *)mmapr(knows_output_file, &knows_length);
 	// this does not do anything yet. But it could...
-	unsigned short* location_arr = prepare_person_location_bin();
-	filter_person_location(location_arr, folder);
+	// unsigned short* location_arr = prepare_person_location_bin();
+	filter_person_location();
 	// location_map = (LocationBin *)mmapr((char*)"person_location.bin", &person_location_length);
 
 	printf("Starting reorg \n");
