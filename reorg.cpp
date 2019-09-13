@@ -45,13 +45,13 @@ unsigned short * prepare_person_location_bin() {
 
 void filter_person_location(unsigned short* location_arr, char * folder) {
 
-	FILE *knows_outfile = fopen("location_knows.raw", "w");
-	FILE *person_location_outfile = fopen("location_person.raw", "w");
+	// FILE *knows_outfile = fopen("location_knows.raw", "w");
+	// FILE *person_location_outfile = fopen("location_person.raw", "w");
 	FILE   *knows_out;
 	FILE   *person_out;
 	
-	knows_out = open_binout(makepath(folder, (char*)"location_knows", (char *)"bin"));
-	person_out = open_binout(makepath(folder, (char*)"location_person", (char *)"bin"));
+	knows_out = open_binout((char*)"location_knows.bin");
+	person_out = open_binout((char*)"location_person.bin");
 
 	unsigned int i, max_i;
 	unsigned int j, max_j;
