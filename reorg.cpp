@@ -43,7 +43,7 @@ unsigned short * prepare_person_location_bin() {
 	return location_arr;
 }
 
-void filter_person_location(unsigned short* location_arr, char * folder) {
+void filter_person_location() {
 
 	// FILE *knows_outfile = fopen("location_knows.raw", "w");
 	// FILE *person_location_outfile = fopen("location_person.raw", "w");
@@ -127,8 +127,8 @@ int main(int argc, char *argv[]) {
 	person_map = (Person *)mmapr(person_output_file, &person_length);
 	knows_map = (unsigned int *)mmapr(knows_output_file, &knows_length);
 	// this does not do anything yet. But it could...
-	unsigned short* location_arr = prepare_person_location_bin();
-	filter_person_location(location_arr, folder);
+	// unsigned short* location_arr = prepare_person_location_bin();
+	filter_person_location();
 	// location_map = (LocationBin *)mmapr((char*)"person_location.bin", &person_location_length);
 
 	printf("Starting reorg \n");
