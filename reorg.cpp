@@ -114,10 +114,10 @@ void filter_person_location(unsigned short* location_arr, char * folder) {
 	printf("total person: %d \n", max_i);
 	printf("total: %d \n", total);
 }
-s
+
 int main(int argc, char *argv[]) {
 
-	printf("Starting reorg \n");
+	fprintf(stdout, "Starting reorg\n");
 
 	char* folder = argv[1];
 	char* person_output_file   = makepath((char*)argv[1], (char*)"person",   (char*)"bin");
@@ -128,7 +128,7 @@ int main(int argc, char *argv[]) {
 	knows_map = (unsigned int *)mmapr(knows_output_file, &knows_length);
 	// this does not do anything yet. But it could...
 	unsigned short* location_arr = prepare_person_location_bin();
-	filter_person_location(location_arr, folder);
+	// filter_person_location(location_arr, folder);
 	// location_map = (LocationBin *)mmapr((char*)"person_location.bin", &person_location_length);
 
 	printf("Starting reorg \n");
