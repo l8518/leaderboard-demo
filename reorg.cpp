@@ -80,7 +80,7 @@ void filter_person_location(unsigned short* location_arr, char * folder) {
 			Person *new_f = &person_map[offset];
 			// if location or friend is equal, write to output file.
 			if (new_f->location == p->location) {
-				fprintf(knows_outfile, "%u\n", offset); //TODO: DEBUG ONLY
+				// fprintf(knows_outfile, "%u\n", offset); //TODO: DEBUG ONLY
 				// Write Binary Version:
 				fwrite(&offset, sizeof(unsigned int), 1, knows_out);
 
@@ -104,10 +104,10 @@ void filter_person_location(unsigned short* location_arr, char * folder) {
 			// write binary person record to file
 			fwrite(new_p, sizeof(Person), 1, person_out);
 			// write person:
-			fprintf(person_location_outfile, "%lu|%hu|%hu|%u|%hu|%lu|%hu\n",
-			 new_p->person_id, new_p->birthday, new_p->location, new_p->knows_first, new_p->knows_n,
-			 new_p->interests_first, new_p->interest_n
-			 ); //TODO: DEBUG ONLY
+			// fprintf(person_location_outfile, "%lu|%hu|%hu|%u|%hu|%lu|%hu\n",
+			//  new_p->person_id, new_p->birthday, new_p->location, new_p->knows_first, new_p->knows_n,
+			//  new_p->interests_first, new_p->interest_n
+			//  ); //TODO: DEBUG ONLY
 		}
 	}
 	printf("total person: %d \n", max_i);
