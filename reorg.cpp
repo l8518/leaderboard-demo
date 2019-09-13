@@ -17,6 +17,8 @@ Person *person_map;
 unsigned int *knows_map;
 // LocationBin *location_map;
 FILE *outfile;
+FILE   *knows_out;
+FILE   *person_out;
 
 
 
@@ -47,12 +49,6 @@ void filter_person_location() {
 
 	// FILE *knows_outfile = fopen("location_knows.raw", "w");
 	// FILE *person_location_outfile = fopen("location_person.raw", "w");
-	FILE   *knows_out;
-	FILE   *person_out;
-	
-	knows_out = open_binout((char*)"location_knows.bin");
-	person_out = open_binout((char*)"location_person.bin");
-
 	unsigned int i, max_i;
 	unsigned int j, max_j;
 	unsigned int new_knows_pos = 0;
@@ -121,9 +117,13 @@ int main(int argc, char *argv[]) {
 
 	char* folder = argv[1];
 	char* person_output_file   = makepath((char*)argv[1], (char*)"person",   (char*)"bin");
+	char* person_location_output_file   = makepath((char*)argv[1], (char*)"location_person",   (char*)"bin");
 	char* interest_output_file = makepath((char*)argv[1], (char*)"interest", (char*)"bin");
 	char* knows_output_file    = makepath((char*)argv[1], (char*)"knows",    (char*)"bin");
-	
+	char* knows_location_output_file    = makepath((char*)argv[1], (char*)"location_knows",    (char*)"bin");
+
+	knows_out = open_binout(knows_location_output_file);
+	person_out = open_binout(person_location_output_file);
 	person_map = (Person *)mmapr(person_output_file, &person_length);
 	knows_map = (unsigned int *)mmapr(knows_output_file, &knows_length);
 	// this does not do anything yet. But it could...
