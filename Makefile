@@ -1,5 +1,5 @@
 # remove the # in the following line to enable reorg compilation (and running)
-all: cruncher cruncher-profile cruncher-profile-wo reorg
+all: cruncher reorg
 
 cruncher: cruncher.cpp utils.h
 	g++ -I. -std=c++11 -O3 -o cruncher cruncher.cpp
