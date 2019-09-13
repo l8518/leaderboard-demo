@@ -11,3 +11,4 @@ out.csv
 gmon.out
 *.txt
 *.raw
+*.bin
