@@ -74,10 +74,8 @@ int main(int argc, char *argv[])
 	char *person_location_output_file = makepath(folder, (char *)"location_person", (char *)"bin");
 	char *knows_location_output_file = makepath(folder, (char *)"location_knows", (char *)"bin");
 	// MMAP Output files
-	FILE *knows_out;
-	FILE *person_out;
-	knows_out = open_binout(knows_location_output_file);
-	person_out = open_binout(person_location_output_file);
+	FILE *knows_out = open_binout(knows_location_output_file);
+	FILE *person_out = open_binout(person_location_output_file);;
 
 	filter_person_location(knows_out, person_out);
 
