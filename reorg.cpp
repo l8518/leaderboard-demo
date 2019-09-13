@@ -8,16 +8,11 @@
 #include <chrono>
 
 // Variables:
-unsigned long person_length, knows_length, interest_length, person_location_length;
-
+unsigned long person_length, knows_length, interest_length;
 Person *person_map;
 unsigned int *knows_map;
-// LocationBin *location_map;
-FILE *outfile;
-FILE *knows_out;
-FILE *person_out;
 
-void filter_person_location()
+void filter_person_location(FILE *knows_out, FILE *person_out)
 {
 	unsigned int i, max_i;
 	unsigned int j, max_j;
@@ -79,10 +74,12 @@ int main(int argc, char *argv[])
 	char *person_location_output_file = makepath(folder, (char *)"location_person", (char *)"bin");
 	char *knows_location_output_file = makepath(folder, (char *)"location_knows", (char *)"bin");
 	// MMAP Output files
+	FILE *knows_out;
+	FILE *person_out;
 	knows_out = open_binout(knows_location_output_file);
 	person_out = open_binout(person_location_output_file);
 
-	filter_person_location();
+	filter_person_location(knows_out, person_out);
 
 	printf("Starting reorg \n");
 	//take time:
