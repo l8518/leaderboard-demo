@@ -13,8 +13,8 @@ cruncher-profile-wo: cruncher.cpp utils.h
 loader: loader.c utils.h
 	gcc -I. -O3 -o loader loader.c 
 
-reorg: reorg.cpp utils.h
-	g++ -I. -std=c++11 -O3 -o reorg reorg.cpp
+reorg: reorg.c utils.h
+	g++ -I. -O3 -o reorg reorg.c
 
 clean:
 	rm -f loader cruncher reorg
