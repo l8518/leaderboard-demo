@@ -10,3 +10,4 @@ dataset-sf3000
 out.csv
 gmon.out
 *.txt
+*.raw
