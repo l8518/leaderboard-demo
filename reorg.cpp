@@ -59,6 +59,7 @@ void filter_person_location(unsigned short* location_arr, char * folder) {
 
 	max_i = person_length / sizeof(Person);
 	Person *p, *k;
+	Person *new_p = new Person();
 	int total = 0;
 
 
@@ -92,7 +93,7 @@ void filter_person_location(unsigned short* location_arr, char * folder) {
 
 		if (true) {
 			// Write Binary Version:
-			Person *new_p = new Person();
+			
 			new_p->person_id = (unsigned long)p->person_id;
 			new_p->birthday =  (unsigned short)p->birthday;
 			new_p->location =  (unsigned short)p->location;
