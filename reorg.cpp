@@ -56,7 +56,6 @@ void filter_person_location(unsigned short* location_arr, char * folder) {
 	unsigned int i, max_i;
 	unsigned int j, max_j;
 	unsigned int new_knows_pos = 0;
-	unsigned int new_person_pos = 0;
 
 	max_i = person_length / sizeof(Person);
 	Person *p, *k;
@@ -109,8 +108,6 @@ void filter_person_location(unsigned short* location_arr, char * folder) {
 			 new_p->person_id, new_p->birthday, new_p->location, new_p->knows_first, new_p->knows_n,
 			 new_p->interests_first, new_p->interest_n
 			 ); //TODO: DEBUG ONLY
-
-			new_person_pos=i;
 		}
 	}
 	printf("total person: %d \n", max_i);
