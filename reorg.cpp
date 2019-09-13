@@ -114,7 +114,7 @@ void filter_person_location(unsigned short* location_arr, char * folder) {
 	printf("total person: %d \n", max_i);
 	printf("total: %d \n", total);
 }
-
+s
 int main(int argc, char *argv[]) {
 
 	printf("Starting reorg \n");
