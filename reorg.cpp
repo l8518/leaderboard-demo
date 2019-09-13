@@ -5,14 +5,18 @@
 #include <sys/mman.h>
 
 #include "utils.h"
-
-unsigned long person_length, knows_length, interest_length;
-Person *person_map;
-FILE *outfile;
-
+// Type Defs:
 typedef struct {
 	unsigned short location;
 } LocationBin;
+
+// Variables:
+unsigned long person_length, knows_length, interest_length, person_location_length;
+Person *person_map;
+LocationBin *location_map;
+FILE *outfile;
+
+
 
 /**
  * Prepare a bin file, that only contains the location and the person offset (implicitly)
@@ -43,6 +47,7 @@ int main(int argc, char *argv[]) {
 	person_map = (Person *)mmapr(person_output_file, &person_length);
 	// this does not do anything yet. But it could...
 	prepare_person_location_bin();
+	location_map = (LocationBin *)mmapr((char*)"person_location.bin", &person_location_length);
 	return 0;
 }
 
