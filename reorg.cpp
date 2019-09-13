@@ -5,6 +5,7 @@
 #include <sys/mman.h>
 
 #include "utils.h"
+#include <chrono>
 // Type Defs:
 // typedef struct {
 // 	unsigned short location;
@@ -114,6 +115,7 @@ void filter_person_location() {
 int main(int argc, char *argv[]) {
 
 	fprintf(stdout, "Starting reorg\n");
+	auto t1 = std::chrono::high_resolution_clock::now();
 
 	char* folder = argv[1];
 	char* person_output_file   = makepath((char*)argv[1], (char*)"person",   (char*)"bin");
@@ -132,6 +134,13 @@ int main(int argc, char *argv[]) {
 	// location_map = (LocationBin *)mmapr((char*)"person_location.bin", &person_location_length);
 
 	printf("Starting reorg \n");
+	//take time:
+	auto t2 = std::chrono::high_resolution_clock::now();
+	auto duration = std::chrono::duration_cast<std::chrono::microseconds>( t2 - t1 ).count();
+
+	printf("Execution took microseconds: %d \n", duration);
+	printf("Execution took seconds: %d \n", duration / 1000000);
+	printf("Execution took minutes : %d \n", duration / 1000000 / 60);
 	return 0;
 }
 
