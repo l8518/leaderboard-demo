@@ -108,6 +108,60 @@ void filter_person_no_friends(FILE *knows_out, FILE *person_out) {
 
 }
 
+void filter_mutual_friends(FILE *knows_out, FILE *person_out) {
+
+	unsigned int i, j, y;
+	unsigned int max_i = person_length / sizeof(Person);;
+	unsigned int max_j;
+	unsigned int max_y;
+	unsigned int new_knows_pos = 0;
+	Person *p, *k;
+	Person *new_p = new Person();
+
+	// determine all people to keep.
+	for (i = 0; i < max_i; i++)
+	{
+		p = &person_map[i];
+		max_j = p->knows_first + p->knows_n;
+
+		unsigned int start_new_knows_pos = new_knows_pos;
+		// iterate over all friendships
+		for (j = p->knows_first; j < max_j; j++)
+		{
+			unsigned int offset = knows_map[j];
+			k = &person_map[offset];
+			max_y = k->knows_first + k->knows_n;
+
+			// check mutual friendship:
+			bool is_mutual = false;
+			for (y = k->knows_first; y < max_y; y++) {
+				unsigned int offset_to_p = knows_map[y];
+				if (offset_to_p != i) continue;
+				is_mutual = true;
+				break;
+			}
+
+			if (is_mutual == true) {
+				fwrite(&offset, sizeof(unsigned int), 1, knows_out);
+				new_knows_pos++;
+			}
+		}
+
+		// Write Binary Version:
+		new_p->person_id = (unsigned long)p->person_id;
+		new_p->birthday = (unsigned short)p->birthday;
+		new_p->location = (unsigned short)p->location;
+		new_p->knows_first = (unsigned long)start_new_knows_pos;
+		new_p->knows_n = (unsigned short)(new_knows_pos - start_new_knows_pos);
+		new_p->interests_first = (unsigned long)p->interests_first;
+		new_p->interest_n = (unsigned short)p->interest_n;
+
+		// write binary person record to file
+		fwrite(new_p, sizeof(Person), 1, person_out);
+	}
+
+}
+
 int main(int argc, char *argv[])
 {
 
@@ -148,6 +202,20 @@ int main(int argc, char *argv[])
 	fclose(person_out);
 	fclose(knows_out);
 
+	// Unmap previous person_map and remap to processed one:
+	munmap(person_map, person_length);
+	munmap(knows_map, knows_length);
+	person_map = (Person *)mmapr(person_location_friends_output_file, &person_length);
+	knows_map = (unsigned int *)mmapr(knows_location_friends_output_file, &knows_length);
+
+	// STEP 03: Filter for mutual friends only:
+	char *person_location_friends_mutual_output_file = makepath(folder, (char *)"location_friends_mutual_person", (char *)"bin");
+	char *knows_location_friends_mutual_output_file = makepath(folder, (char *)"location_friends_mutual_knows", (char *)"bin");
+	person_out = open_binout(person_location_friends_mutual_output_file);
+	knows_out = open_binout(knows_location_friends_mutual_output_file);;
+	filter_mutual_friends(knows_out, person_out);
+	fclose(person_out);
+	fclose(knows_out);
 
 	printf("Starting reorg \n");
 	//take time:

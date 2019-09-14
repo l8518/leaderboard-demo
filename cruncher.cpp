@@ -298,9 +298,9 @@ int main(int argc, char *argv[])
 	auto t1 = std::chrono::high_resolution_clock::now();
 
 	/* memory-map files created by loader */
-	person_map = (Person *)mmapr(makepath((char *)query_path, (char *)"location_friends_person", (char *)"bin"), &person_length);
+	person_map = (Person *)mmapr(makepath((char *)query_path, (char *)"location_friends_mutual_person", (char *)"bin"), &person_length);
 	interest_map = (unsigned short *)mmapr(makepath((char *)query_path, (char *)"interest", (char *)"bin"), &interest_length);
-	knows_map = (unsigned int *)mmapr(makepath((char *)query_path, (char *)"location_friends_knows", (char *)"bin"), &knows_length);
+	knows_map = (unsigned int *)mmapr(makepath((char *)query_path, (char *)"location_friends_mutual_knows", (char *)"bin"), &knows_length);
 
 	outfile = fopen(argv[3], "w");
 	if (outfile == NULL)
