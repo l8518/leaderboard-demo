@@ -15,6 +15,13 @@ typedef struct {
 	unsigned short interest_n;
 } Person;
 
+typedef struct {
+	unsigned long  person_id;
+	unsigned long  knows_first;
+	unsigned long  interests_first;
+	unsigned short birthday;
+} CompressedPerson;
+
 typedef struct { 
     unsigned long  person_id;
     unsigned long  knows_id;

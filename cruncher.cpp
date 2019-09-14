@@ -22,7 +22,7 @@
 #define QUERY_FIELD_BS 5
 #define QUERY_FIELD_BE 6
 
-Person *person_map;
+CompressedPerson *person_map;
 unsigned int *knows_map;
 unsigned short *interest_map;
 
@@ -53,10 +53,11 @@ int result_comparator(const void *v1, const void *v2)
 std::set<unsigned int> read_people_by_birthday(unsigned short bdstart, unsigned short bdend)
 {
 	unsigned int person_offset;
-	unsigned int person_max_iterations = person_length / sizeof(Person);
+	unsigned int person_max_iterations = person_length / sizeof(CompressedPerson);
+	// person_max_iterations = 100;
 	std::set<unsigned int> select_people;
-	Person *person;
-	printf("Person.bin is %d rows long.\n", person_max_iterations);
+	CompressedPerson *person;
+	printf("Original Person.bin is %d rows long.\n", person_max_iterations);
 
 	for (person_offset = 0; person_offset < person_max_iterations; person_offset++)
 	{
@@ -65,17 +66,41 @@ std::set<unsigned int> read_people_by_birthday(unsigned short bdstart, unsigned 
 			continue;
 		select_people.insert(person_offset);
 	}
-	printf("Filtered Person.bin is %d rows long.\n", select_people.size());
+	printf("Birthday Filtered Person.bin is %d rows long.\n", select_people.size());
 	return select_people;
 }
 
-unsigned char person_get_score(Person *person, unsigned short areltd[])
+unsigned long compute_interest_n(CompressedPerson *cp, unsigned long poffset) {
+	unsigned long max_i;
+
+	if (poffset + 1 < person_length / sizeof(CompressedPerson)) {
+		CompressedPerson *np = &person_map[poffset +1];
+		max_i = np->interests_first - cp->interests_first;
+	} else {
+		max_i = (interest_length / sizeof(unsigned short)) - cp->interests_first;
+	}
+	return max_i;
+}
+
+unsigned long compute_knows_n(CompressedPerson *cp, unsigned long poffset) {
+	unsigned long max_i;
+
+	if (poffset + 1 < person_length / sizeof(CompressedPerson)) {
+		CompressedPerson *np = &person_map[poffset +1];
+		max_i = np->knows_first - cp->knows_first;
+	} else {
+		max_i = (knows_length / sizeof(unsigned int)) - cp->knows_first;
+	}
+	return max_i;
+}
+
+unsigned char person_get_score(CompressedPerson *person, unsigned long interest_n, unsigned short areltd[])
 {
 	long interest_offset;
 	unsigned short interest;
 	unsigned char score = 0;
 	for (interest_offset = person->interests_first;
-		 interest_offset < person->interests_first + person->interest_n;
+		 interest_offset < person->interests_first + interest_n;
 		 interest_offset++)
 	{
 
@@ -95,14 +120,14 @@ unsigned char person_get_score(Person *person, unsigned short areltd[])
 	return score;
 }
 
-char person_likes_artist(Person *person, unsigned short artist)
+char person_likes_artist(CompressedPerson *person, unsigned long interest_n, unsigned short artist)
 {
 	long interest_offset;
 	unsigned short interest;
 	unsigned short likesartist = 0;
 
 	for (interest_offset = person->interests_first;
-		 interest_offset < person->interests_first + person->interest_n;
+		 interest_offset < person->interests_first + interest_n;
 		 interest_offset++)
 	{
 
@@ -118,7 +143,6 @@ char person_likes_artist(Person *person, unsigned short artist)
 
 typedef struct {
 	unsigned long  person_id;
-	unsigned short location;
 	unsigned long  knows_first;
 	unsigned short knows_n;
 	char score;
@@ -128,6 +152,8 @@ std::map<unsigned int, QueryPerson> filter_by_interests(std::set<unsigned int> s
 {
 
 	long interest_offset;
+	unsigned long interest_n;
+	unsigned short knows_n;
 	unsigned short interest;
 	unsigned char score;
 	std::map<unsigned int, QueryPerson> filtered;
@@ -135,21 +161,23 @@ std::map<unsigned int, QueryPerson> filter_by_interests(std::set<unsigned int> s
 	printf("Filtered Person.bin is %d rows long.\n", selected_people.size());
 	for (const auto person_offset : selected_people)
 	{
-		Person *current_person = &person_map[person_offset];
-		// person must not like artist yet
-		if (person_likes_artist(current_person, artist))
-			continue;
+		CompressedPerson *current_person = &person_map[person_offset];
+		interest_n = compute_interest_n(current_person, person_offset);
+		knows_n = compute_knows_n(current_person, person_offset);
 
+		// person must not like artist yet
+		if (person_likes_artist(current_person, interest_n, artist))
+			continue;
+		
 		// person must like some of these other guys
-		score = person_get_score(current_person, areltd);
+		score = person_get_score(current_person, interest_n, areltd);
 		if (score < 1)
 			continue;
 
 		// add to filterd:
 		filtered[person_offset].person_id = current_person->person_id;
-		filtered[person_offset].location = current_person->location;
 		filtered[person_offset].knows_first = current_person->knows_first;
-		filtered[person_offset].knows_n = current_person->knows_n;
+		filtered[person_offset].knows_n = knows_n;
 		filtered[person_offset].score = score;
 	}
 	printf("Refiltered Person.bin is %d rows long.\n", filtered.size());
@@ -164,19 +192,25 @@ typedef struct {
 std::map<unsigned long, QueryFriend> read_friends_by_interest(unsigned short artist , std::map<unsigned int, QueryPerson> filtered_people)
 {
 	unsigned int person_friend_offset;
-	unsigned int person_max_iterations = person_length / sizeof(Person);
+	unsigned int person_max_iterations = person_length / sizeof(CompressedPerson);
 	// person_max_iterations = 250;
 	unsigned long knows_offset, knows_offset2;
+	unsigned long interest_n;
 	std::map<unsigned long, QueryFriend> select_people;
-	Person *person_friend, *knows;
+	CompressedPerson *person_friend, *knows;
 	printf("Person.bin is %d rows long.\n", person_max_iterations);
 
 	for (person_friend_offset = 0; person_friend_offset < person_max_iterations; person_friend_offset++)
 	{
 		person_friend = &person_map[person_friend_offset];
+		interest_n = compute_interest_n(person_friend, person_friend_offset);
+
+		if (18691717267657 == person_friend->person_id) {
+			printf("DEBUG: %lu \n", interest_n);
+		}
 
 		// potential friend must like artist
-		if (!person_likes_artist(person_friend, artist))
+		if (!person_likes_artist(person_friend, interest_n, artist))
 			continue;
 
 		select_people[person_friend_offset].person_id = person_friend->person_id;
@@ -202,7 +236,7 @@ void legacy_query(unsigned short qid, std::map<unsigned int, QueryPerson> select
 
 
 		if (person_offset > 0 && person_offset % REPORTING_N == 0) {
-			printf("%.2f%%\n", 100 * (person_offset * 1.0/(person_length/sizeof(Person))));
+			printf("%.2f%%\n", 100 * (person_offset * 1.0/(person_length/sizeof(CompressedPerson))));
 		}
 
 		// check if friend lives in same city and likes artist 
@@ -278,7 +312,7 @@ int main(int argc, char *argv[])
 	auto t1 = std::chrono::high_resolution_clock::now();
 
 	/* memory-map files created by loader */
-	person_map = (Person *)mmapr(makepath((char *)query_path, (char *)"location_friends_mutual_person", (char *)"bin"), &person_length);
+	person_map = (CompressedPerson *)mmapr(makepath((char *)query_path, (char *)"person_compressed", (char *)"bin"), &person_length);
 	interest_map = (unsigned short *)mmapr(makepath((char *)query_path, (char *)"location_friends_mutual_interest", (char *)"bin"), &interest_length);
 	knows_map = (unsigned int *)mmapr(makepath((char *)query_path, (char *)"location_friends_mutual_knows", (char *)"bin"), &knows_length);
 

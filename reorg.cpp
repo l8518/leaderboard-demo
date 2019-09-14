@@ -173,6 +173,27 @@ void filter_mutual_friends(FILE *knows_out, FILE *person_out, FILE *interest_out
 
 }
 
+void compress_persons(FILE *person_out) {
+
+	unsigned int i;
+	unsigned int max_i = person_length / sizeof(Person);
+	Person *p;
+	CompressedPerson *cp = new CompressedPerson();
+
+	for (i = 0; i < max_i; i++)
+	{
+		p = &person_map[i];
+		// Write Binary Version:
+		cp->person_id = (unsigned long)p->person_id;
+		cp->knows_first = (unsigned long)p->knows_first;
+		cp->interests_first = (unsigned long)p->interests_first;
+		cp->birthday = (unsigned short)p->birthday;
+		
+		// write binary person record to file
+		fwrite(cp, sizeof(CompressedPerson), 1, person_out);
+	}
+}
+
 int main(int argc, char *argv[])
 {
 
@@ -232,7 +253,18 @@ int main(int argc, char *argv[])
 	fclose(knows_out);
 	fclose(interest_out);
 
-	printf("Starting reorg \n");
+	// Unmap previous person_map and remap to processed one:
+	munmap(person_map, person_length);
+	munmap(knows_map, knows_length);
+	person_map = (Person *)mmapr(person_location_friends_mutual_output_file, &person_length);
+	knows_map = (unsigned int *)mmapr(knows_location_friends_mutual_output_file, &knows_length);
+
+	// STEP 04: Compress Persons:
+	char *person_compressed_output_file = makepath(folder, (char *)"person_compressed", (char *)"bin");
+	person_out = open_binout(person_compressed_output_file);
+	compress_persons(person_out);
+	fclose(person_out);
+
 	//take time:
 	auto t2 = std::chrono::high_resolution_clock::now();
 	auto duration = std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1).count();
