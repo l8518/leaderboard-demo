@@ -159,8 +159,6 @@ std::map<unsigned int, QueryPerson> filter_by_interests(std::set<unsigned int> s
 
 typedef struct {
 	unsigned long  person_id;
-	unsigned short location;
-	std::set<unsigned int> person_friends;
 } QueryFriend;
 
 std::map<unsigned long, QueryFriend> read_friends_by_interest(unsigned short artist , std::map<unsigned int, QueryPerson> filtered_people)
@@ -180,19 +178,8 @@ std::map<unsigned long, QueryFriend> read_friends_by_interest(unsigned short art
 		// potential friend must like artist
 		if (!person_likes_artist(person_friend, artist))
 			continue;
-		
-		for (knows_offset = person_friend->knows_first; 
-			knows_offset < person_friend->knows_first + person_friend->knows_n; 
-			knows_offset++) {
 
-			unsigned int person_person_offset = knows_map[knows_offset];
-
-			if (filtered_people.find(person_person_offset) != filtered_people.end()) {
-				select_people[person_friend_offset].person_id = person_friend->person_id;
-				select_people[person_friend_offset].location = person_friend->location;
-				select_people[person_friend_offset].person_friends.insert(person_person_offset);
-			}
-		}
+		select_people[person_friend_offset].person_id = person_friend->person_id;
 	}
 	printf("Filtered Person.bin for friends is %d rows long.\n", select_people.size());
 	return select_people;
@@ -230,22 +217,15 @@ void legacy_query(unsigned short qid, std::map<unsigned int, QueryPerson> select
 
 			QueryFriend qkp = friends_friends_map[person_friend_offset];
 			
-			if (qp.location != qkp.location) continue;
-
-			// check if friendship is mutal:
-			auto friends_friends = qkp.person_friends;
-			
-			if (friends_friends.find(person_offset) != friends_friends.end() ) {
-					// realloc result array if we run out of space
-					if (result_length >= result_set_size) {
-						result_set_size *= 2;
-						results = (Result *)realloc(results, result_set_size * sizeof (Result));
-					}
-					results[result_length].person_id = qp.person_id;
-					results[result_length].knows_id = qkp.person_id;
-					results[result_length].score = qp.score;
-					result_length++;
+			// realloc result array if we run out of space
+			if (result_length >= result_set_size) {
+				result_set_size *= 2;
+				results = (Result *)realloc(results, result_set_size * sizeof (Result));
 			}
+			results[result_length].person_id = qp.person_id;
+			results[result_length].knows_id = qkp.person_id;
+			results[result_length].score = qp.score;
+			result_length++;
 		}
 	}
 
