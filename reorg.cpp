@@ -11,6 +11,7 @@
 // Variables:
 unsigned long person_length, knows_length, interest_length;
 Person *person_map;
+CompressedPerson *person_com_map;
 unsigned int *knows_map;
 unsigned short *interest_map;
 
@@ -22,7 +23,7 @@ void filter_person_location(FILE *knows_out, FILE *person_out)
 
 	max_i = person_length / sizeof(Person);
 	Person *p, *k;
-	Person *new_p = new Person();
+	CompressedPerson *new_p = new CompressedPerson();
 
 	for (i = 0; i < max_i; i++)
 	{
@@ -54,7 +55,7 @@ void filter_person_location(FILE *knows_out, FILE *person_out)
 		new_p->interest_n = (unsigned short)p->interest_n;
 
 		// write binary person record to file
-		fwrite(new_p, sizeof(Person), 1, person_out);
+		fwrite(new_p, sizeof(CompressedPerson), 1, person_out);
 	}
 }
 
@@ -63,14 +64,14 @@ void filter_person_no_friends(FILE *knows_out, FILE *person_out) {
 	unsigned int j, max_j;
 	unsigned int new_i = 0;
 	unsigned int new_knows_pos = 0;
-	max_i = person_length / sizeof(Person);
+	max_i = person_length / sizeof(CompressedPerson);
 	std::map<int, unsigned int> keeper;
-	Person *p, *k;
-	Person *new_p = new Person();
+	CompressedPerson *p, *k;
+	CompressedPerson *new_p = new CompressedPerson();
 	
 	// determine all people to keep.
 	for (i = 0; i < max_i; i++) {
-		p = &person_map[i];
+		p = &person_com_map[i];
 		if (p->knows_n == 0) continue;
 		keeper[i] = new_i;
 		new_i++;
@@ -80,7 +81,7 @@ void filter_person_no_friends(FILE *knows_out, FILE *person_out) {
 	{
 		if (keeper.find(i) == keeper.end()) continue;
 
-		p = &person_map[i];
+		p = &person_com_map[i];
 		max_j = p->knows_first + p->knows_n;
 
 		unsigned int start_new_knows_pos = new_knows_pos;
@@ -104,7 +105,7 @@ void filter_person_no_friends(FILE *knows_out, FILE *person_out) {
 		new_p->interest_n = (unsigned short)p->interest_n;
 
 		// write binary person record to file
-		fwrite(new_p, sizeof(Person), 1, person_out);
+		fwrite(new_p, sizeof(CompressedPerson), 1, person_out);
 	}
 
 }
@@ -112,18 +113,18 @@ void filter_person_no_friends(FILE *knows_out, FILE *person_out) {
 void filter_mutual_friends(FILE *knows_out, FILE *person_out, FILE *interest_out) {
 
 	unsigned int i, j, y;
-	unsigned int max_i = person_length / sizeof(Person);;
+	unsigned int max_i = person_length / sizeof(CompressedPerson);;
 	unsigned int max_j;
 	unsigned int max_y;
 	unsigned int new_knows_pos = 0;
 	unsigned long new_interest_pos = 0;
-	Person *p, *k;
-	Person *new_p = new Person();
+	CompressedPerson *p, *k;
+	CompressedPerson *new_p = new CompressedPerson();
 
 	// determine all people to keep.
 	for (i = 0; i < max_i; i++)
 	{
-		p = &person_map[i];
+		p = &person_com_map[i];
 		max_j = p->knows_first + p->knows_n;
 
 		unsigned long start_new_knows_pos = new_knows_pos;
@@ -132,7 +133,7 @@ void filter_mutual_friends(FILE *knows_out, FILE *person_out, FILE *interest_out
 		for (j = p->knows_first; j < max_j; j++)
 		{
 			unsigned int offset = knows_map[j];
-			k = &person_map[offset];
+			k = &person_com_map[offset];
 			max_y = k->knows_first + k->knows_n;
 
 			// check mutual friendship:
@@ -168,7 +169,7 @@ void filter_mutual_friends(FILE *knows_out, FILE *person_out, FILE *interest_out
 		new_p->interest_n = (unsigned short)(new_interest_pos - start_new_interest_pos);
 
 		// write binary person record to file
-		fwrite(new_p, sizeof(Person), 1, person_out);
+		fwrite(new_p, sizeof(CompressedPerson), 1, person_out);
 	}
 
 }
@@ -201,7 +202,7 @@ int main(int argc, char *argv[])
 	printf("%d \n", knows_length);
 	munmap(person_map, person_length);
 	munmap(knows_map, knows_length);
-	person_map = (Person *)mmapr(person_location_output_file, &person_length);
+	person_com_map = (CompressedPerson *)mmapr(person_location_output_file, &person_length);
 	knows_map = (unsigned int *)mmapr(knows_location_output_file, &knows_length);
 
 	printf("%d \n", knows_length);
@@ -214,10 +215,10 @@ int main(int argc, char *argv[])
 	fclose(person_out);
 	fclose(knows_out);
 
-	// Unmap previous person_map and remap to processed one:
-	munmap(person_map, person_length);
+	// Unmap previous person_com_map and remap to processed one:
+	munmap(person_com_map, person_length);
 	munmap(knows_map, knows_length);
-	person_map = (Person *)mmapr(person_location_friends_output_file, &person_length);
+	person_com_map = (CompressedPerson *)mmapr(person_location_friends_output_file, &person_length);
 	knows_map = (unsigned int *)mmapr(knows_location_friends_output_file, &knows_length);
 
 	// STEP 03: Filter for mutual friends only:
