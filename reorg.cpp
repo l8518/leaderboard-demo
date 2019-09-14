@@ -110,7 +110,7 @@ void filter_person_no_friends(FILE *knows_out, FILE *person_out) {
 
 }
 
-void filter_mutual_friends(FILE *knows_out, FILE *person_out, FILE *interest_out) {
+void filter_mutual_friends_and_reduce_interests(FILE *knows_out, FILE *person_out, FILE *interest_out) {
 
 	unsigned int i, j, y;
 	unsigned int max_i = person_length / sizeof(CompressedPerson);;
@@ -221,14 +221,14 @@ int main(int argc, char *argv[])
 	person_com_map = (CompressedPerson *)mmapr(person_location_friends_output_file, &person_length);
 	knows_map = (unsigned int *)mmapr(knows_location_friends_output_file, &knows_length);
 
-	// STEP 03: Filter for mutual friends only:
+	// STEP 03: Filter for mutual friends only and reduce intersts.bin:
 	char *person_location_friends_mutual_output_file = makepath(folder, (char *)"location_friends_mutual_person", (char *)"bin");
 	char *knows_location_friends_mutual_output_file = makepath(folder, (char *)"location_friends_mutual_knows", (char *)"bin");
 	char *interest_location_friends_mutual_output_file = makepath(folder, (char *)"location_friends_mutual_interest", (char *)"bin");
 	person_out = open_binout(person_location_friends_mutual_output_file);
 	knows_out = open_binout(knows_location_friends_mutual_output_file);;
 	FILE *interest_out = open_binout(interest_location_friends_mutual_output_file);;
-	filter_mutual_friends(knows_out, person_out, interest_out);
+	filter_mutual_friends_and_reduce_interests(knows_out, person_out, interest_out);
 	fclose(person_out);
 	fclose(knows_out);
 	fclose(interest_out);
