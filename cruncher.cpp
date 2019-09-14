@@ -279,7 +279,7 @@ int main(int argc, char *argv[])
 
 	/* memory-map files created by loader */
 	person_map = (Person *)mmapr(makepath((char *)query_path, (char *)"location_friends_mutual_person", (char *)"bin"), &person_length);
-	interest_map = (unsigned short *)mmapr(makepath((char *)query_path, (char *)"interest", (char *)"bin"), &interest_length);
+	interest_map = (unsigned short *)mmapr(makepath((char *)query_path, (char *)"location_friends_mutual_interest", (char *)"bin"), &interest_length);
 	knows_map = (unsigned int *)mmapr(makepath((char *)query_path, (char *)"location_friends_mutual_knows", (char *)"bin"), &knows_length);
 
 	outfile = fopen(argv[3], "w");

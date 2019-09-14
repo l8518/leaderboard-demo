@@ -12,6 +12,7 @@
 unsigned long person_length, knows_length, interest_length;
 Person *person_map;
 unsigned int *knows_map;
+unsigned short *interest_map;
 
 void filter_person_location(FILE *knows_out, FILE *person_out)
 {
@@ -108,13 +109,14 @@ void filter_person_no_friends(FILE *knows_out, FILE *person_out) {
 
 }
 
-void filter_mutual_friends(FILE *knows_out, FILE *person_out) {
+void filter_mutual_friends(FILE *knows_out, FILE *person_out, FILE *interest_out) {
 
 	unsigned int i, j, y;
 	unsigned int max_i = person_length / sizeof(Person);;
 	unsigned int max_j;
 	unsigned int max_y;
 	unsigned int new_knows_pos = 0;
+	unsigned long new_interest_pos = 0;
 	Person *p, *k;
 	Person *new_p = new Person();
 
@@ -124,7 +126,8 @@ void filter_mutual_friends(FILE *knows_out, FILE *person_out) {
 		p = &person_map[i];
 		max_j = p->knows_first + p->knows_n;
 
-		unsigned int start_new_knows_pos = new_knows_pos;
+		unsigned long start_new_knows_pos = new_knows_pos;
+		unsigned long start_new_interest_pos = new_interest_pos;
 		// iterate over all friendships
 		for (j = p->knows_first; j < max_j; j++)
 		{
@@ -147,14 +150,22 @@ void filter_mutual_friends(FILE *knows_out, FILE *person_out) {
 			}
 		}
 
+		// rewrite the whole interests (as we will have superfluous ones)
+		for (j = p->interests_first; j < p->interests_first + p->interest_n; j++)
+		{
+			unsigned short interest = interest_map[j];
+			fwrite(&interest, sizeof(unsigned short), 1, interest_out);
+			new_interest_pos++;
+		}
+
 		// Write Binary Version:
 		new_p->person_id = (unsigned long)p->person_id;
 		new_p->birthday = (unsigned short)p->birthday;
 		new_p->location = (unsigned short)p->location;
 		new_p->knows_first = (unsigned long)start_new_knows_pos;
 		new_p->knows_n = (unsigned short)(new_knows_pos - start_new_knows_pos);
-		new_p->interests_first = (unsigned long)p->interests_first;
-		new_p->interest_n = (unsigned short)p->interest_n;
+		new_p->interests_first = (unsigned long)start_new_interest_pos;
+		new_p->interest_n = (unsigned short)(new_interest_pos - start_new_interest_pos);
 
 		// write binary person record to file
 		fwrite(new_p, sizeof(Person), 1, person_out);
@@ -175,6 +186,7 @@ int main(int argc, char *argv[])
 	// MMAP source files
 	person_map = (Person *)mmapr(person_output_file, &person_length);
 	knows_map = (unsigned int *)mmapr(knows_output_file, &knows_length);
+	interest_map = (unsigned short *)mmapr(interest_output_file, &interest_length);
 
 	// STEP 01: Filter for locality
 	char *person_location_output_file = makepath(folder, (char *)"location_person", (char *)"bin");
@@ -211,11 +223,14 @@ int main(int argc, char *argv[])
 	// STEP 03: Filter for mutual friends only:
 	char *person_location_friends_mutual_output_file = makepath(folder, (char *)"location_friends_mutual_person", (char *)"bin");
 	char *knows_location_friends_mutual_output_file = makepath(folder, (char *)"location_friends_mutual_knows", (char *)"bin");
+	char *interest_location_friends_mutual_output_file = makepath(folder, (char *)"location_friends_mutual_interest", (char *)"bin");
 	person_out = open_binout(person_location_friends_mutual_output_file);
 	knows_out = open_binout(knows_location_friends_mutual_output_file);;
-	filter_mutual_friends(knows_out, person_out);
+	FILE *interest_out = open_binout(interest_location_friends_mutual_output_file);;
+	filter_mutual_friends(knows_out, person_out, interest_out);
 	fclose(person_out);
 	fclose(knows_out);
+	fclose(interest_out);
 
 	printf("Starting reorg \n");
 	//take time:
