@@ -7,6 +7,7 @@
 #include "utils.h"
 #include <chrono>
 #include <map>
+#include <algorithm>    // std::max
 
 // Variables:
 unsigned long person_length, knows_length, interest_length;
@@ -174,6 +175,71 @@ void filter_mutual_friends_and_reduce_interests(FILE *knows_out, FILE *person_ou
 
 }
 
+void build_inverted_list(char *folder) {
+	unsigned int i, j;
+	unsigned int max_i = person_length / sizeof(CompressedPerson);;
+	CompressedPerson *p;
+	InterestPersonMapping *ipm = new InterestPersonMapping();
+
+	// write interest personoffset
+	char *interest_person_mapping = makepath(folder, (char *)"interest_person_mapping", (char *)"bin");
+	FILE *ipm_out = open_binout(interest_person_mapping);
+	for (i = 0; i < max_i; i++) {
+		p = &person_com_map[i];
+
+		for (j = p->interests_first; j < p->interests_first + p->interest_n; j++)
+		{
+			unsigned short interest = interest_map[j];
+
+			ipm->interest = interest;
+			ipm->poffset = i;
+
+			fwrite(ipm, sizeof(InterestPersonMapping), 1, ipm_out);
+		}
+	}
+	fclose(ipm_out);
+
+	std::set<unsigned short> interest_set;
+	for (i = 0; i < interest_length / sizeof(unsigned short); i++) {
+		unsigned short interest = interest_map[i];
+		interest_set.insert(interest);
+	}
+
+	unsigned long interest_person_mapping_length;
+	InterestPersonMapping *interest_person_map;
+	interest_person_map = (InterestPersonMapping *)mmapr(interest_person_mapping, &interest_person_mapping_length);
+
+	char *tags_path = makepath(folder, (char *)"tags", (char *)"bin");
+	FILE *tags_out = open_binout(tags_path);
+	Tag *new_tag = new Tag();
+
+	unsigned int current_posting_offset = 0;
+	char *postings_path = makepath(folder, (char *)"postings", (char *)"bin");
+	FILE *postings_out = open_binout(postings_path);
+
+	for(const unsigned short interest : interest_set) {
+		// printf("INT: %hu \n", interest);
+		unsigned int start_posting_offset = current_posting_offset;
+
+		for (i = 0; i < interest_person_mapping_length / sizeof(InterestPersonMapping); i++) {
+
+			InterestPersonMapping *ipm = &interest_person_map[i];
+
+			if (ipm->interest != interest) continue;
+
+			// write posting
+			fwrite(&ipm->poffset, sizeof(unsigned int), 1, postings_out);
+			current_posting_offset++;
+		}
+
+		new_tag->posting_first = start_posting_offset;
+		new_tag->posting_n = current_posting_offset - start_posting_offset;
+		fwrite(new_tag, sizeof(Tag), 1, tags_out);
+	}
+	fclose(tags_out);
+	fclose(postings_out);
+}
+
 int main(int argc, char *argv[])
 {
 
@@ -233,7 +299,22 @@ int main(int argc, char *argv[])
 	fclose(knows_out);
 	fclose(interest_out);
 
-	printf("Starting reorg \n");
+	// Remap for counting:
+	munmap(person_com_map, person_length);
+	munmap(knows_map, knows_length);
+	munmap(interest_map, interest_length);
+	person_com_map = (CompressedPerson *)mmapr(person_location_friends_mutual_output_file, &person_length);
+	knows_map = (unsigned int *)mmapr(knows_location_friends_mutual_output_file, &knows_length);
+	interest_map = (unsigned short *)mmapr(interest_location_friends_mutual_output_file, &interest_length);
+
+	// build interest inverted lists:	
+	build_inverted_list(folder);
+
+	printf("Finished reorg \n");
+	printf("Lines in latest person.bin: \t %u \n", person_length / sizeof(CompressedPerson) );
+	printf("Lines in latest knows.bin: \t %u \n", knows_length / sizeof(unsigned int) );
+	printf("Lines in latest interest.bin: \t %u \n", interest_length / sizeof(unsigned short) );
+
 	//take time:
 	auto t2 = std::chrono::high_resolution_clock::now();
 	auto duration = std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1).count();

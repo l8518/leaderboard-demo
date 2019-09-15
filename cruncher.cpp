@@ -11,6 +11,9 @@
 #include <set>
 #include <typeinfo>
 #include <chrono>
+#include <bitset>
+#include <iostream>
+#include <vector>
 
 #include "utils.h"
 
@@ -25,8 +28,11 @@
 CompressedPerson *person_map;
 unsigned int *knows_map;
 unsigned short *interest_map;
+Tag *tags_map;
+unsigned int *postings_map;
+std::map<unsigned int, char> map;
 
-unsigned long person_length, knows_length, interest_length;
+unsigned long person_length, knows_length, interest_length, tags_length, postings_length;
 
 FILE *outfile;
 
@@ -50,182 +56,95 @@ int result_comparator(const void *v1, const void *v2)
 		return 0;
 }
 
-std::set<unsigned int> read_people_by_birthday(unsigned short bdstart, unsigned short bdend)
-{
-	unsigned int person_offset;
-	unsigned int person_max_iterations = person_length / sizeof(CompressedPerson);
-	std::set<unsigned int> select_people;
-	CompressedPerson *person;
-	printf("CompressedPerson.bin is %d rows long.\n", person_max_iterations);
+void calculate_bitmap(unsigned short artist, std::vector<bool> *bitmap) {
+	Tag *t = &tags_map[artist];
 
-	for (person_offset = 0; person_offset < person_max_iterations; person_offset++)
-	{
-		person = &person_map[person_offset];
-		if (person->birthday < bdstart || person->birthday > bdend)
-			continue;
-		select_people.insert(person_offset);
+	printf("DEBUG ART: %d \n", artist);
+	unsigned int i;
+	for (i = t->posting_first; i < t->posting_first + t->posting_n; i++ ) {
+		unsigned int poffset = postings_map[i];
+		(*bitmap)[poffset] = 1;
 	}
-	printf("Filtered CompressedPerson.bin is %d rows long.\n", select_people.size());
-	return select_people;
 }
 
-unsigned char person_get_score(CompressedPerson *person, unsigned short areltd[])
-{
-	long interest_offset;
-	unsigned short interest;
-	unsigned char score = 0;
-	for (interest_offset = person->interests_first;
-		 interest_offset < person->interests_first + person->interest_n;
-		 interest_offset++)
-	{
+void fetch_postings(Tag *t, std::vector<bool> *bitmap) {
+	for (unsigned int i = t->posting_first; i < t->posting_first + t->posting_n; i++ ) {
+		unsigned int poffset = postings_map[i];
 
-		interest = interest_map[interest_offset];
-		if (areltd[0] == interest)
-			score++;
-		if (areltd[1] == interest)
-			score++;
-		if (areltd[2] == interest)
-			score++;
-		// early exit
-		if (score > 2)
-		{
-			break;
+		if (person_map[poffset].person_id != 1099519747126) printf("T: %d", (((*bitmap)[poffset]) ? 1 : 0));
+		// candidates should not like A1
+		if ((*bitmap)[poffset]) continue;
+
+		// should like at least one of those (calculate score)
+		if (map.find(poffset) == map.end()) {
+			map[poffset] = 1;
+		} else {
+			map[poffset] = map[poffset] + 1;
 		}
 	}
-	return score;
 }
 
-char person_likes_artist(CompressedPerson *person, unsigned short artist)
+std::map<unsigned int, char> * build_person_candidates(unsigned short a2, unsigned short a3, unsigned short a4, std::vector<bool> *bitmap) {
+	Tag *t;
+	printf("Size of map %d\n", map.size());
+	fetch_postings(&tags_map[a2], bitmap);
+	printf("Size of map %d\n", map.size());
+	fetch_postings(&tags_map[a3], bitmap);
+	printf("Size of map %d\n", map.size());
+	fetch_postings(&tags_map[a4], bitmap);
+	printf("Size of map %d\n", map.size());
+	return &map;
+}
+
+void query(unsigned short qid, unsigned short artist, unsigned short areltd[], unsigned short bdstart, unsigned short bdend)
 {
-	long interest_offset;
-	unsigned short interest;
-	unsigned short likesartist = 0;
+	printf("Running query %d\n", qid);
 
-	for (interest_offset = person->interests_first;
-		 interest_offset < person->interests_first + person->interest_n;
-		 interest_offset++)
-	{
+	printf("Running query with a1: %hu a2: %hu, a3: %hu, a4: %hu bdstart: %hu bdend: %hu\n", artist, areltd[0], areltd[1], areltd[2], bdstart, bdend);
+	std::vector<bool> bitmap(person_length / sizeof(CompressedPerson));
 
-		interest = interest_map[interest_offset];
-		if (interest == artist)
-		{
-			likesartist = 1;
-			break;
-		}
-	}
-	return likesartist;
-}
-
-typedef struct {
-	unsigned long  person_id;
-	unsigned short location;
-	unsigned long  knows_first;
-	unsigned short knows_n;
-	char score;
-} QueryPerson;
-
-std::map<unsigned int, QueryPerson> filter_by_interests(std::set<unsigned int> selected_people, unsigned short artist, unsigned short areltd[])
-{
-
-	long interest_offset;
-	unsigned short interest;
-	unsigned char score;
-	std::map<unsigned int, QueryPerson> filtered;
-
-	printf("Filtered CompressedPerson.bin is %d rows long.\n", selected_people.size());
-	for (const auto person_offset : selected_people)
-	{
-		CompressedPerson *current_person = &person_map[person_offset];
-		// person must not like artist yet
-		if (person_likes_artist(current_person, artist))
-			continue;
-
-		// person must like some of these other guys
-		score = person_get_score(current_person, areltd);
-		if (score < 1)
-			continue;
-
-		// add to filterd:
-		filtered[person_offset].person_id = current_person->person_id;
-		filtered[person_offset].location = current_person->location;
-		filtered[person_offset].knows_first = current_person->knows_first;
-		filtered[person_offset].knows_n = current_person->knows_n;
-		filtered[person_offset].score = score;
-	}
-	printf("Refiltered CompressedPerson.bin is %d rows long.\n", filtered.size());
-
-	return filtered;
-}
-
-typedef struct {
-	unsigned long  person_id;
-} QueryFriend;
-
-std::map<unsigned long, QueryFriend> read_friends_by_interest(unsigned short artist , std::map<unsigned int, QueryPerson> filtered_people)
-{
-	unsigned int person_friend_offset;
-	unsigned int person_max_iterations = person_length / sizeof(CompressedPerson);
-	// person_max_iterations = 250;
-	unsigned long knows_offset, knows_offset2;
-	std::map<unsigned long, QueryFriend> select_people;
-	CompressedPerson *person_friend, *knows;
-	printf("CompressedPerson.bin is %d rows long.\n", person_max_iterations);
-
-	for (person_friend_offset = 0; person_friend_offset < person_max_iterations; person_friend_offset++)
-	{
-		person_friend = &person_map[person_friend_offset];
-
-		// potential friend must like artist
-		if (!person_likes_artist(person_friend, artist))
-			continue;
-
-		select_people[person_friend_offset].person_id = person_friend->person_id;
-	}
-	printf("Filtered CompressedPerson.bin for friends is %d rows long.\n", select_people.size());
-	return select_people;
-}
-
-
-void legacy_query(unsigned short qid, std::map<unsigned int, QueryPerson> selected_people, unsigned short artist, unsigned short areltd[], std::map<unsigned long, QueryFriend> friends_friends_map) {
-	unsigned long knows_offset, knows_offset2;
-
-	// CompressedPerson *person, *knows;
+	calculate_bitmap(artist, &bitmap);
+	build_person_candidates(areltd[0], areltd[1], areltd[2], &bitmap);
+	printf("Size of map %d\n", map.size());
+	// for (int i=0; i < person_length / sizeof(CompressedPerson); i++) {
+	// 	if (bitmap[i]) {
+	// 		printf("T");
+	// 	} else {
+	// 		printf("F");
+	// 	}
+	// }
 
 	unsigned int result_length = 0, result_idx, result_set_size = 1000;
 	Result* results = (Result*)malloc(result_set_size * sizeof (Result));
-	
-	for (const auto p : selected_people) {
-		unsigned int  person_offset = p.first;
-		QueryPerson qp = p.second;
+
+	CompressedPerson *p, *f;
+	for(const auto it : map) {
+		unsigned int candidate_poffset = it.first;
+		char score = it.second;
+
+		p = &person_map[candidate_poffset];
 		
-		// person = &person_map[person_offset];
+		 if (p->birthday < bdstart || p->birthday > bdend)
+		 	continue;
 
+		for (int koffset = p->knows_first; koffset < p->knows_first + p->knows_n; koffset++) {
 
-		if (person_offset > 0 && person_offset % REPORTING_N == 0) {
-			printf("%.2f%%\n", 100 * (person_offset * 1.0/(person_length/sizeof(CompressedPerson))));
-		}
-
-		// check if friend lives in same city and likes artist 
-		for (knows_offset = qp.knows_first; 
-			knows_offset < qp.knows_first + qp.knows_n; 
-			knows_offset++) {
+			unsigned int kpoffset = knows_map[koffset];
 			
-			unsigned int person_friend_offset = knows_map[knows_offset];
+			if (!bitmap[kpoffset]) continue;
 
-			// check if friend likes a1 too, if not abroad
-			if (friends_friends_map.find(person_friend_offset) == friends_friends_map.end()) continue;
+			f = &person_map[kpoffset];
 
-			QueryFriend qkp = friends_friends_map[person_friend_offset];
-			
 			// realloc result array if we run out of space
 			if (result_length >= result_set_size) {
 				result_set_size *= 2;
 				results = (Result *)realloc(results, result_set_size * sizeof (Result));
 			}
-			results[result_length].person_id = qp.person_id;
-			results[result_length].knows_id = qkp.person_id;
-			results[result_length].score = qp.score;
+			results[result_length].person_id = p->person_id;
+			results[result_length].knows_id = f->person_id;
+			results[result_length].score = score;
 			result_length++;
+
 		}
 	}
 
@@ -237,16 +156,6 @@ void legacy_query(unsigned short qid, std::map<unsigned int, QueryPerson> select
 		fprintf(outfile, "%d|%d|%lu|%lu\n", qid, results[result_idx].score, 
 			results[result_idx].person_id, results[result_idx].knows_id);
 	}
-}
-
-void query(unsigned short qid, unsigned short artist, unsigned short areltd[], unsigned short bdstart, unsigned short bdend)
-{
-	printf("Running query %d\n", qid);
-	auto select_people = read_people_by_birthday(bdstart, bdend);
-	auto filtered_people = filter_by_interests(select_people, artist, areltd); // everyone of those has a score > 1.
-	auto filtered_friends_with_friends = read_friends_by_interest(artist, filtered_people);
-
-	legacy_query(qid, filtered_people, artist, areltd, filtered_friends_with_friends);
 }
 
 void query_line_handler(unsigned char nfields, char **tokens)
@@ -281,6 +190,8 @@ int main(int argc, char *argv[])
 	person_map = (CompressedPerson *)mmapr(makepath((char *)query_path, (char *)"location_friends_mutual_person", (char *)"bin"), &person_length);
 	interest_map = (unsigned short *)mmapr(makepath((char *)query_path, (char *)"location_friends_mutual_interest", (char *)"bin"), &interest_length);
 	knows_map = (unsigned int *)mmapr(makepath((char *)query_path, (char *)"location_friends_mutual_knows", (char *)"bin"), &knows_length);
+	tags_map = (Tag *)mmapr(makepath((char *)query_path, (char *)"tags", (char *)"bin"), &tags_length);
+	postings_map = (unsigned int *)mmapr(makepath((char *)query_path, (char *)"postings", (char *)"bin"), &postings_length);
 
 	outfile = fopen(argv[3], "w");
 	if (outfile == NULL)
