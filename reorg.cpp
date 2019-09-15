@@ -236,7 +236,7 @@ void build_inverted_list(char *folder) {
 	char *ipm_sorted = makepath(folder, (char *)"interest_person_mapping_sorted", (char *)"csv");
 	std::string str1 = (std::string)makepath(folder, (char *)"interest_person_mapping", (char *)"csv");
 	std::string str2 = (std::string)ipm_sorted;
-	std::string cmd = "sort -S 768M --field-separator=' ' --key=2n " + str1 + " > " + str2;
+	std::string cmd = "sort -S 512MB --field-separator=' ' --key=2n " + str1 + " > " + str2;
 	std::system(cmd.c_str());
 
 	printf(" \t PersonMapping SORTED\n");
