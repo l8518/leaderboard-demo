@@ -28,12 +28,11 @@
 
 CompressedPerson *person_map;
 unsigned int *knows_map;
-unsigned short *interest_map;
 Tag *tags_map;
 unsigned int *postings_map;
 std::map<unsigned int, char> map;
 
-unsigned long person_length, knows_length, interest_length, tags_length, postings_length;
+unsigned long person_length, knows_length, tags_length, postings_length;
 
 FILE *outfile;
 
@@ -61,9 +60,6 @@ void calculate_bitmap(unsigned short artist, std::vector<bool> *bitmap) {
 	Tag *t = &tags_map[artist];
 	// TODO: Here is an issue with n (don't know why -> probs reorg)
 	Tag *t2 = &tags_map[artist + 1];
-	printf("%d \n", t->posting_first );
-	printf("%d \n", t->posting_n );
-	printf("%d \n", t2->posting_first );
 	unsigned int i;
 	for (i = t->posting_first; i < t2->posting_first; i++ ) {
 		unsigned int poffset = postings_map[i];
@@ -88,37 +84,26 @@ void fetch_postings(Tag *t, Tag *t2, std::vector<bool> *bitmap) {
 	}
 }
 
-std::map<unsigned int, char> * build_person_candidates(unsigned short a2, unsigned short a3, unsigned short a4, std::vector<bool> *bitmap) {
-	Tag *t;
-	printf("Size of map %d\n", map.size());
+void build_person_candidates(unsigned short a2, unsigned short a3, unsigned short a4, std::vector<bool> *bitmap) {
 	fetch_postings(&tags_map[a2], &tags_map[a2+1], bitmap);
-	printf("Size of map %d\n", map.size());
 	fetch_postings(&tags_map[a3], &tags_map[a3+1], bitmap);
-	printf("Size of map %d\n", map.size());
 	fetch_postings(&tags_map[a4], &tags_map[a4+1], bitmap);
-	printf("Size of map %d\n", map.size());
-	return &map;
 }
 
 void query(unsigned short qid, unsigned short artist, unsigned short areltd[], unsigned short bdstart, unsigned short bdend)
 {
-	printf("Running query %d\n", qid);
-
-	printf("Running query with a1: %hu a2: %hu, a3: %hu, a4: %hu bdstart: %hu bdend: %hu\n", artist, areltd[0], areltd[1], areltd[2], bdstart, bdend);
 	std::vector<bool> bitmap(person_length / sizeof(CompressedPerson));
 	map.clear();
 
 	calculate_bitmap(artist, &bitmap);
 	build_person_candidates(areltd[0], areltd[1], areltd[2], &bitmap);
 
-	unsigned int result_length = 0, result_idx, result_set_size = 1000;
+	unsigned int result_length = 0, result_idx, result_set_size = 2000;
 	Result* results = (Result*)malloc(result_set_size * sizeof (Result));
 
 	CompressedPerson *p, *f;
 	for(const auto it : map) {
 		unsigned int candidate_poffset = it.first;
-		char score = it.second;
-
 		p = &person_map[candidate_poffset];
 		
 		 if (p->birthday < bdstart || p->birthday > bdend)
@@ -139,7 +124,7 @@ void query(unsigned short qid, unsigned short artist, unsigned short areltd[], u
 			}
 			results[result_length].person_id = p->person_id;
 			results[result_length].knows_id = f->person_id;
-			results[result_length].score = score;
+			results[result_length].score = it.second;;
 			result_length++;
 
 		}
@@ -179,34 +164,12 @@ int main(int argc, char *argv[])
 		exit(1);
 	}
 	const char *query_path = (argv[1]);
-	printf("Starting cruncher \n");
-	DIR *dir;
-	struct dirent *ent;
-	if ((dir = opendir (query_path)) != NULL) {
-	/* print all the files and directories within directory */
-	while ((ent = readdir (dir)) != NULL) {
-		printf ("%s\n", ent->d_name);
-	}
-	closedir (dir);
-	} else {
-	/* could not open directory */
-	perror ("");
-	return EXIT_FAILURE;
-	}
-	// take time:
-	auto t1 = std::chrono::high_resolution_clock::now();
 
 	/* memory-map files created by loader */
 	person_map = (CompressedPerson *)mmapr(makepath((char *)query_path, (char *)"location_friends_mutual_person", (char *)"bin"), &person_length);
-	interest_map = (unsigned short *)mmapr(makepath((char *)query_path, (char *)"location_friends_mutual_interest", (char *)"bin"), &interest_length);
 	knows_map = (unsigned int *)mmapr(makepath((char *)query_path, (char *)"location_friends_mutual_knows", (char *)"bin"), &knows_length);
 	postings_map = (unsigned int *)mmapr(makepath((char *)query_path, (char *)"postings", (char *)"bin"), &postings_length);
 	tags_map = (Tag *)mmapr(makepath((char *)query_path, (char *)"tags", (char *)"bin"), &tags_length);
-
-	printf("TAG ELEM: %d \n", tags_length / sizeof(Tag) );
-	printf("Postings ELEM: %d \n", postings_length / sizeof(unsigned int) );
-	printf("Person ELEM: %d \n", person_length / sizeof(CompressedPerson) );
-	printf("Person ELEM: %d \n", knows_length / sizeof(unsigned int) );
 
 	outfile = fopen(argv[3], "w");
 	if (outfile == NULL)
@@ -218,13 +181,5 @@ int main(int argc, char *argv[])
 	/* run through queries */
 	parse_csv(argv[2], &query_line_handler);
 
-	//take time:
-	auto t2 = std::chrono::high_resolution_clock::now();
-	auto duration = std::chrono::duration_cast<std::chrono::microseconds>( t2 - t1 ).count();
-
-	printf("Execution took microseconds: %d \n", duration);
-	printf("Execution took seconds: %d \n", duration / 1000000);
-	printf("Execution took minutes : %d \n", duration / 1000000 / 60);
-	printf("Finished cruncher \n");
 	return 0;
 }
