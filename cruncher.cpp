@@ -14,6 +14,7 @@
 #include <bitset>
 #include <iostream>
 #include <vector>
+#include <dirent.h>
 
 #include "utils.h"
 
@@ -179,6 +180,19 @@ int main(int argc, char *argv[])
 	}
 	const char *query_path = (argv[1]);
 	printf("Starting cruncher \n");
+	DIR *dir;
+	struct dirent *ent;
+	if ((dir = opendir (query_path)) != NULL) {
+	/* print all the files and directories within directory */
+	while ((ent = readdir (dir)) != NULL) {
+		printf ("%s\n", ent->d_name);
+	}
+	closedir (dir);
+	} else {
+	/* could not open directory */
+	perror ("");
+	return EXIT_FAILURE;
+	}
 	// take time:
 	auto t1 = std::chrono::high_resolution_clock::now();
 
