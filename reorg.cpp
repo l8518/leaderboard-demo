@@ -16,6 +16,8 @@ CompressedPerson *person_com_map;
 unsigned int *knows_map;
 unsigned short *interest_map;
 
+bool DEBUG = false;
+
 void filter_person_location(FILE *knows_out, FILE *person_out)
 {
 	unsigned int i, max_i;
@@ -152,7 +154,7 @@ void filter_mutual_friends_and_reduce_interests(char *folder, FILE *knows_out, F
 
 			if (is_mutual == true) {
 				fwrite(&offset, sizeof(unsigned int), 1, knows_out);
-				fprintf(debug_knows, "%u,\n", offset );
+				if(DEBUG) fprintf(debug_knows, "%u,\n", offset );
 				new_knows_pos++;
 			}
 		}
@@ -162,7 +164,7 @@ void filter_mutual_friends_and_reduce_interests(char *folder, FILE *knows_out, F
 		{
 			unsigned short interest = interest_map[j];
 			fwrite(&interest, sizeof(unsigned short), 1, interest_out);
-			fprintf(debug_interest, "%hu,\n", interest );
+			if(DEBUG) fprintf(debug_interest, "%hu,\n", interest );
 			new_interest_pos++;
 		}
 
@@ -175,7 +177,7 @@ void filter_mutual_friends_and_reduce_interests(char *folder, FILE *knows_out, F
 		new_p->interests_first = (unsigned long)start_new_interest_pos;
 		new_p->interest_n = (unsigned short)(new_interest_pos - start_new_interest_pos);
 
-		fprintf(debug_person, "%lu, %hu, %hu, %lu, %hu, %lu, %hu\n", new_p->person_id, new_p->birthday, new_p->location, new_p->knows_first, new_p->knows_n, new_p->interests_first, new_p->interest_n );
+		if(DEBUG) fprintf(debug_person, "%lu, %hu, %hu, %lu, %hu, %lu, %hu\n", new_p->person_id, new_p->birthday, new_p->location, new_p->knows_first, new_p->knows_n, new_p->interests_first, new_p->interest_n );
 
 		// write binary person record to file
 		fwrite(new_p, sizeof(CompressedPerson), 1, person_out);
@@ -207,7 +209,7 @@ void build_inverted_list(char *folder) {
 
 			ipm->interest = interest;
 			ipm->poffset = i;
-			fprintf(ipm_debug, "%u, %hu\n", ipm->interest, ipm->poffset);
+			if(DEBUG) fprintf(ipm_debug, "%u, %hu\n", ipm->interest, ipm->poffset);
 			fwrite(ipm, sizeof(InterestPersonMapping), 1, ipm_out);
 		}
 	}
@@ -251,13 +253,13 @@ void build_inverted_list(char *folder) {
 
 			// write posting
 			fwrite(&ipm->poffset, sizeof(unsigned int), 1, postings_out);
-			fprintf(postings_debug, "%u\n", ipm->poffset);
+			if(DEBUG) fprintf(postings_debug, "%u\n", ipm->poffset);
 			current_posting_offset++;
 		}
 
 		new_tag->posting_first = start_posting_offset;
 		new_tag->posting_n = current_posting_offset - start_posting_offset;
-		fprintf(tag_debug, "%u, %hu\n", new_tag->posting_first, new_tag->posting_n);
+		if(DEBUG) fprintf(tag_debug, "%u, %hu\n", new_tag->posting_first, new_tag->posting_n);
 		fwrite(new_tag, sizeof(Tag), 1, tags_out);
 	}
 	fclose(tags_out);
