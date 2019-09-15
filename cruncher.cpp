@@ -58,15 +58,21 @@ int result_comparator(const void *v1, const void *v2)
 
 void calculate_bitmap(unsigned short artist, std::vector<bool> *bitmap) {
 	Tag *t = &tags_map[artist];
+	// TODO: Here is an issue with n (don't know why -> probs reorg)
+	Tag *t2 = &tags_map[artist + 1];
+	printf("%d \n", t->posting_first );
+	printf("%d \n", t->posting_n );
+	printf("%d \n", t2->posting_first );
 	unsigned int i;
-	for (i = t->posting_first; i < t->posting_first + t->posting_n; i++ ) {
+	for (i = t->posting_first; i < t2->posting_first; i++ ) {
 		unsigned int poffset = postings_map[i];
 		(*bitmap)[poffset] = 1;		
 	}
 }
 
-void fetch_postings(Tag *t, std::vector<bool> *bitmap) {
-	for (unsigned int i = t->posting_first; i < t->posting_first + t->posting_n; i++ ) {
+void fetch_postings(Tag *t, Tag *t2, std::vector<bool> *bitmap) {
+	// TODO: Here is an issue with n (don't know why -> probs reorg)
+	for (unsigned int i = t->posting_first; i < t2->posting_first; i++ ) {
 		unsigned int poffset = postings_map[i];
 
 		// candidates should not like A1
@@ -84,11 +90,11 @@ void fetch_postings(Tag *t, std::vector<bool> *bitmap) {
 std::map<unsigned int, char> * build_person_candidates(unsigned short a2, unsigned short a3, unsigned short a4, std::vector<bool> *bitmap) {
 	Tag *t;
 	printf("Size of map %d\n", map.size());
-	fetch_postings(&tags_map[a2], bitmap);
+	fetch_postings(&tags_map[a2], &tags_map[a2+1], bitmap);
 	printf("Size of map %d\n", map.size());
-	fetch_postings(&tags_map[a3], bitmap);
+	fetch_postings(&tags_map[a3], &tags_map[a3+1], bitmap);
 	printf("Size of map %d\n", map.size());
-	fetch_postings(&tags_map[a4], bitmap);
+	fetch_postings(&tags_map[a4], &tags_map[a4+1], bitmap);
 	printf("Size of map %d\n", map.size());
 	return &map;
 }
@@ -182,6 +188,11 @@ int main(int argc, char *argv[])
 	knows_map = (unsigned int *)mmapr(makepath((char *)query_path, (char *)"location_friends_mutual_knows", (char *)"bin"), &knows_length);
 	tags_map = (Tag *)mmapr(makepath((char *)query_path, (char *)"tags", (char *)"bin"), &tags_length);
 	postings_map = (unsigned int *)mmapr(makepath((char *)query_path, (char *)"postings", (char *)"bin"), &postings_length);
+
+	printf("TAG ELEM: %d \n", tags_length / sizeof(Tag) );
+	printf("Postings ELEM: %d \n", postings_length / sizeof(unsigned int) );
+	printf("Person ELEM: %d \n", person_length / sizeof(CompressedPerson) );
+	printf("Person ELEM: %d \n", knows_length / sizeof(unsigned int) );
 
 	outfile = fopen(argv[3], "w");
 	if (outfile == NULL)
