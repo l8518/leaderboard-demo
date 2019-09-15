@@ -7,7 +7,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <iostream>
-#include <map>
+#include <unordered_map>
 #include <set>
 #include <typeinfo>
 #include <chrono>
@@ -30,7 +30,7 @@ CompressedPerson *person_map;
 unsigned int *knows_map;
 Tag *tags_map;
 unsigned int *postings_map;
-std::map<unsigned int, char> map;
+std::unordered_map<unsigned int, char> map;
 
 unsigned long person_length, knows_length, tags_length, postings_length;
 
