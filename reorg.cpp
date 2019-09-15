@@ -22,7 +22,7 @@ CompressedPerson *person_com_map;
 unsigned int *knows_map;
 unsigned short *interest_map;
 
-bool DEBUG = true;
+bool DEBUG = false;
 
 struct InterestPersonMapping {
 	unsigned int poffset = 0;
