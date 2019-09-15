@@ -28,11 +28,6 @@ typedef struct {
 } CompressedPerson;
 
 typedef struct {
-	unsigned int poffset;
-	unsigned short interest;
-} InterestPersonMapping;
-
-typedef struct {
 	unsigned int posting_first;
 	unsigned short posting_n;
 } Tag;
