@@ -4,8 +4,11 @@ services:
     build:
       context: .
     image: gcc-cruncher
-    mem_limit: 1g
-    mem_reservation: 1g
+    cpu_count: 1
+    cpu_percent: 100
+    cpus: 1.0
+    mem_limit: 512mb
+    mem_reservation: 512mb
     cpu_count: 1
     volumes:
       - ./:/opt/lsde
