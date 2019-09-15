@@ -58,12 +58,10 @@ int result_comparator(const void *v1, const void *v2)
 
 void calculate_bitmap(unsigned short artist, std::vector<bool> *bitmap) {
 	Tag *t = &tags_map[artist];
-
-	printf("DEBUG ART: %d \n", artist);
 	unsigned int i;
 	for (i = t->posting_first; i < t->posting_first + t->posting_n; i++ ) {
 		unsigned int poffset = postings_map[i];
-		(*bitmap)[poffset] = 1;
+		(*bitmap)[poffset] = 1;		
 	}
 }
 
@@ -71,7 +69,6 @@ void fetch_postings(Tag *t, std::vector<bool> *bitmap) {
 	for (unsigned int i = t->posting_first; i < t->posting_first + t->posting_n; i++ ) {
 		unsigned int poffset = postings_map[i];
 
-		if (person_map[poffset].person_id != 1099519747126) printf("T: %d", (((*bitmap)[poffset]) ? 1 : 0));
 		// candidates should not like A1
 		if ((*bitmap)[poffset]) continue;
 
@@ -102,17 +99,10 @@ void query(unsigned short qid, unsigned short artist, unsigned short areltd[], u
 
 	printf("Running query with a1: %hu a2: %hu, a3: %hu, a4: %hu bdstart: %hu bdend: %hu\n", artist, areltd[0], areltd[1], areltd[2], bdstart, bdend);
 	std::vector<bool> bitmap(person_length / sizeof(CompressedPerson));
+	map.clear();
 
 	calculate_bitmap(artist, &bitmap);
 	build_person_candidates(areltd[0], areltd[1], areltd[2], &bitmap);
-	printf("Size of map %d\n", map.size());
-	// for (int i=0; i < person_length / sizeof(CompressedPerson); i++) {
-	// 	if (bitmap[i]) {
-	// 		printf("T");
-	// 	} else {
-	// 		printf("F");
-	// 	}
-	// }
 
 	unsigned int result_length = 0, result_idx, result_set_size = 1000;
 	Result* results = (Result*)malloc(result_set_size * sizeof (Result));

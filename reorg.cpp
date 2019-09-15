@@ -111,7 +111,7 @@ void filter_person_no_friends(FILE *knows_out, FILE *person_out) {
 
 }
 
-void filter_mutual_friends_and_reduce_interests(FILE *knows_out, FILE *person_out, FILE *interest_out) {
+void filter_mutual_friends_and_reduce_interests(char *folder, FILE *knows_out, FILE *person_out, FILE *interest_out) {
 
 	unsigned int i, j, y;
 	unsigned int max_i = person_length / sizeof(CompressedPerson);;
@@ -121,6 +121,10 @@ void filter_mutual_friends_and_reduce_interests(FILE *knows_out, FILE *person_ou
 	unsigned long new_interest_pos = 0;
 	CompressedPerson *p, *k;
 	CompressedPerson *new_p = new CompressedPerson();
+
+	FILE *debug_person = fopen(makepath(folder, (char *)"debug_person", (char *)"csv"), "w");
+	FILE *debug_knows = fopen(makepath(folder, (char *)"debug_knows", (char *)"csv"), "w");
+	FILE *debug_interest = fopen(makepath(folder, (char *)"debug_interest", (char *)"csv"), "w");
 
 	// determine all people to keep.
 	for (i = 0; i < max_i; i++)
@@ -148,6 +152,7 @@ void filter_mutual_friends_and_reduce_interests(FILE *knows_out, FILE *person_ou
 
 			if (is_mutual == true) {
 				fwrite(&offset, sizeof(unsigned int), 1, knows_out);
+				fprintf(debug_knows, "%u,\n", offset );
 				new_knows_pos++;
 			}
 		}
@@ -157,6 +162,7 @@ void filter_mutual_friends_and_reduce_interests(FILE *knows_out, FILE *person_ou
 		{
 			unsigned short interest = interest_map[j];
 			fwrite(&interest, sizeof(unsigned short), 1, interest_out);
+			fprintf(debug_interest, "%hu,\n", interest );
 			new_interest_pos++;
 		}
 
@@ -169,9 +175,15 @@ void filter_mutual_friends_and_reduce_interests(FILE *knows_out, FILE *person_ou
 		new_p->interests_first = (unsigned long)start_new_interest_pos;
 		new_p->interest_n = (unsigned short)(new_interest_pos - start_new_interest_pos);
 
+		fprintf(debug_person, "%lu, %hu, %hu, %lu, %hu, %lu, %hu\n", new_p->person_id, new_p->birthday, new_p->location, new_p->knows_first, new_p->knows_n, new_p->interests_first, new_p->interest_n );
+
 		// write binary person record to file
 		fwrite(new_p, sizeof(CompressedPerson), 1, person_out);
 	}
+
+	fclose(debug_person);
+	fclose(debug_knows);
+	fclose(debug_interest);
 
 }
 
@@ -182,6 +194,8 @@ void build_inverted_list(char *folder) {
 	InterestPersonMapping *ipm = new InterestPersonMapping();
 
 	// write interest personoffset
+	FILE *ipm_debug = fopen(makepath(folder, (char *)"debug_interest_person_mapping", (char *)"csv"), "w");
+	
 	char *interest_person_mapping = makepath(folder, (char *)"interest_person_mapping", (char *)"bin");
 	FILE *ipm_out = open_binout(interest_person_mapping);
 	for (i = 0; i < max_i; i++) {
@@ -193,32 +207,40 @@ void build_inverted_list(char *folder) {
 
 			ipm->interest = interest;
 			ipm->poffset = i;
-
+			fprintf(ipm_debug, "%u, %hu\n", ipm->interest, ipm->poffset);
 			fwrite(ipm, sizeof(InterestPersonMapping), 1, ipm_out);
 		}
 	}
 	fclose(ipm_out);
+	fclose(ipm_debug);
 
-	std::set<unsigned short> interest_set;
+	int max = 0;
+	int min = 99999999;
 	for (i = 0; i < interest_length / sizeof(unsigned short); i++) {
 		unsigned short interest = interest_map[i];
-		interest_set.insert(interest);
+		max = std::max(max, (int)interest);
+		min = std::min(min, (int)interest);
 	}
+
+	printf("MAX INTERST IS: %d \n", max);
+	printf("MIN INTERST IS: %d \n", min);
 
 	unsigned long interest_person_mapping_length;
 	InterestPersonMapping *interest_person_map;
 	interest_person_map = (InterestPersonMapping *)mmapr(interest_person_mapping, &interest_person_mapping_length);
 
 	char *tags_path = makepath(folder, (char *)"tags", (char *)"bin");
+	FILE *tag_debug = fopen(makepath(folder, (char *)"debug_tags", (char *)"csv"), "w");
 	FILE *tags_out = open_binout(tags_path);
 	Tag *new_tag = new Tag();
+	unsigned short tag_offset = 0;
 
 	unsigned int current_posting_offset = 0;
 	char *postings_path = makepath(folder, (char *)"postings", (char *)"bin");
 	FILE *postings_out = open_binout(postings_path);
+	FILE *postings_debug = fopen(makepath(folder, (char *)"debug_postings", (char *)"csv"), "w");
 
-	for(const unsigned short interest : interest_set) {
-		// printf("INT: %hu \n", interest);
+	for (unsigned interest = min; interest <= max; interest++) {
 		unsigned int start_posting_offset = current_posting_offset;
 
 		for (i = 0; i < interest_person_mapping_length / sizeof(InterestPersonMapping); i++) {
@@ -229,15 +251,19 @@ void build_inverted_list(char *folder) {
 
 			// write posting
 			fwrite(&ipm->poffset, sizeof(unsigned int), 1, postings_out);
+			fprintf(postings_debug, "%u\n", ipm->poffset);
 			current_posting_offset++;
 		}
 
 		new_tag->posting_first = start_posting_offset;
 		new_tag->posting_n = current_posting_offset - start_posting_offset;
+		fprintf(tag_debug, "%u, %hu\n", new_tag->posting_first, new_tag->posting_n);
 		fwrite(new_tag, sizeof(Tag), 1, tags_out);
 	}
 	fclose(tags_out);
 	fclose(postings_out);
+	fclose(tag_debug);
+	fclose(postings_debug);
 }
 
 int main(int argc, char *argv[])
@@ -294,7 +320,7 @@ int main(int argc, char *argv[])
 	person_out = open_binout(person_location_friends_mutual_output_file);
 	knows_out = open_binout(knows_location_friends_mutual_output_file);;
 	FILE *interest_out = open_binout(interest_location_friends_mutual_output_file);;
-	filter_mutual_friends_and_reduce_interests(knows_out, person_out, interest_out);
+	filter_mutual_friends_and_reduce_interests(folder, knows_out, person_out, interest_out);
 	fclose(person_out);
 	fclose(knows_out);
 	fclose(interest_out);
