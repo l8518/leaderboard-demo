@@ -235,6 +235,8 @@ void build_inverted_list(char *folder) {
 
 	printf(" \t PersonMapping Sortable written\n");
 
+	fopen(makepath(folder, (char *)"REORG IIL SORTING FILE", (char *)"check"), "w");
+
 	//Sort the Outputfile
 	char *ipm_sorted = makepath(folder, (char *)"interest_person_mapping_sorted", (char *)"csv");
 	std::string str1 = (std::string)makepath(folder, (char *)"interest_person_mapping", (char *)"csv");
@@ -243,6 +245,8 @@ void build_inverted_list(char *folder) {
 	std::system(cmd.c_str());
 
 	printf(" \t PersonMapping SORTED\n");
+
+	fopen(makepath(folder, (char *)"REORG IIL SORTED FILE", (char *)"check"), "w");
 
 	// write interest personoffset
 	char *interest_person_mapping = makepath(folder, (char *)"interest_person_mapping", (char *)"bin");
@@ -265,6 +269,8 @@ void build_inverted_list(char *folder) {
 	}
 	fclose(ipm_out);
 
+	fopen(makepath(folder, (char *)"REORG IIL PM Binary Written", (char *)"check"), "w");
+
 	printf(" \t PersonMapping Binary Written\n");
 	
 	int max = 0;
@@ -274,6 +280,8 @@ void build_inverted_list(char *folder) {
 		max = std::max(max, (int)interest);
 		min = std::min(min, (int)interest);
 	}
+
+	fopen(makepath(folder, (char *)"REORG IIL Interest Parsed", (char *)"check"), "w");
 
 	printf(" \t Max Interest Value: %d \n", max);
 	printf(" \t Min Interest Value: %d \n", min);
@@ -293,6 +301,7 @@ void build_inverted_list(char *folder) {
 	FILE *postings_out = open_binout(postings_path);
 	FILE *postings_debug = fopen(makepath(folder, (char *)"debug_postings", (char *)"csv"), "w");
 
+	fopen(makepath(folder, (char *)"REORG IIL Writing T+P", (char *)"check"), "w");
 	printf(" \t Writing Tag and Postings\n");
 	unsigned int ipm_index = 0;
 	unsigned int tags_written = 0;
@@ -317,6 +326,7 @@ void build_inverted_list(char *folder) {
 	fclose(postings_out);
 	fclose(tag_debug);
 	fclose(postings_debug);
+	fopen(makepath(folder, (char *)"REORG IIL ALL DONE", (char *)"check"), "w");
 	printf(" \t Finished Writing Tag (%d) and Postings(%u)\n", tags_written, current_posting_offset);
 }
 
