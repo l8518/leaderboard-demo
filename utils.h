@@ -1,5 +1,7 @@
 #define REPORTING_N 1000000
 #define LINEBUFLEN 1024
+#include <map>
+#include <set>
 
 typedef unsigned long byteoffset;
 typedef unsigned int  entrycount;
@@ -24,6 +26,11 @@ typedef struct {
 	unsigned short birthday;
 	unsigned short location;
 } CompressedPerson;
+
+typedef struct {
+	unsigned int posting_first;
+	unsigned short posting_n;
+} Tag;
 
 typedef struct { 
     unsigned long  person_id;
