@@ -236,7 +236,7 @@ void build_inverted_list(char *folder) {
 	char *ipm_sorted = makepath(folder, (char *)"interest_person_mapping_sorted", (char *)"csv");
 	std::string str1 = (std::string)makepath(folder, (char *)"interest_person_mapping", (char *)"csv");
 	std::string str2 = (std::string)ipm_sorted;
-	std::string cmd = "sort -S 512M --field-separator=' ' --key=2n " + str1 + " > " + str2;
+	std::string cmd = "sort -S 350M --field-separator=' ' --key=2n " + str1 + " > " + str2;
 	std::system(cmd.c_str());
 
 	printf(" \t PersonMapping SORTED\n");
@@ -384,8 +384,12 @@ int main(int argc, char *argv[])
 	knows_map = (unsigned int *)mmapr(knows_location_friends_mutual_output_file, &knows_length);
 	interest_map = (unsigned short *)mmapr(interest_location_friends_mutual_output_file, &interest_length);
 
+	fopen(makepath(folder, (char *)"REORG_STEP01_OKAY", (char *)"check"), "w");
+
 	// build interest inverted lists:	
 	build_inverted_list(folder);
+
+	fopen(makepath(folder, (char *)"REORG_OKAY", (char *)"check"), "w");
 
 	printf("Finished reorg \n");
 	printf("Lines in latest person.bin: \t %u \n", person_length / sizeof(CompressedPerson) );
