@@ -98,12 +98,14 @@ void query(unsigned short qid, unsigned short artist, unsigned short areltd[], u
 	calculate_bitmap(artist, &bitmap);
 	build_person_candidates(areltd[0], areltd[1], areltd[2], &bitmap);
 
-	unsigned int result_length = 0, result_idx, result_set_size = 2000;
+	unsigned int result_length = 0, result_idx, result_set_size = 15000;
+	unsigned int kpoffset;
+	unsigned int candidate_poffset;
 	Result* results = (Result*)malloc(result_set_size * sizeof (Result));
 
 	CompressedPerson *p, *f;
 	for(const auto it : map) {
-		unsigned int candidate_poffset = it.first;
+		candidate_poffset = it.first;
 		p = &person_map[candidate_poffset];
 		
 		 if (p->birthday < bdstart || p->birthday > bdend)
@@ -111,15 +113,14 @@ void query(unsigned short qid, unsigned short artist, unsigned short areltd[], u
 
 		for (int koffset = p->knows_first; koffset < p->knows_first + p->knows_n; koffset++) {
 
-			unsigned int kpoffset = knows_map[koffset];
+			kpoffset = knows_map[koffset];
 			
 			if (!bitmap[kpoffset]) continue;
-
 			f = &person_map[kpoffset];
 
 			// realloc result array if we run out of space
 			if (result_length >= result_set_size) {
-				result_set_size *= 2;
+				result_set_size *= 1.5;
 				results = (Result *)realloc(results, result_set_size * sizeof (Result));
 			}
 			results[result_length].person_id = p->person_id;
