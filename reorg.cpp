@@ -141,9 +141,12 @@ void filter_mutual_friends_and_reduce_interests(char *folder, FILE *knows_out, F
 	CompressedPerson *p, *k;
 	CompressedPerson *new_p = new CompressedPerson();
 
-	FILE *debug_person = fopen(makepath(folder, (char *)"debug_person", (char *)"csv"), "w");
-	FILE *debug_knows = fopen(makepath(folder, (char *)"debug_knows", (char *)"csv"), "w");
-	FILE *debug_interest = fopen(makepath(folder, (char *)"debug_interest", (char *)"csv"), "w");
+	 FILE *debug_person;
+	 if(DEBUG) debug_person  = fopen(makepath(folder, (char *)"debug_person", (char *)"csv"), "w");
+	 FILE *debug_knows;
+	 if(DEBUG) debug_knows = fopen(makepath(folder, (char *)"debug_knows", (char *)"csv"), "w");
+	 FILE *debug_interest;
+	 if(DEBUG) debug_interest = fopen(makepath(folder, (char *)"debug_interest", (char *)"csv"), "w");
 
 	for (i = 0; i < max_i; i++)
 	{
@@ -199,9 +202,9 @@ void filter_mutual_friends_and_reduce_interests(char *folder, FILE *knows_out, F
 		fwrite(new_p, sizeof(CompressedPerson), 1, person_out);
 	}
 
-	fclose(debug_person);
-	fclose(debug_knows);
-	fclose(debug_interest);
+	if(DEBUG) fclose(debug_person);
+	if(DEBUG) fclose(debug_knows);
+	if(DEBUG) fclose(debug_interest);
 	printf("Exit filter_mutual_friends_and_reduce_interests \n");
 }
 
@@ -236,7 +239,7 @@ void build_inverted_list(char *folder) {
 	char *ipm_sorted = makepath(folder, (char *)"interest_person_mapping_sorted", (char *)"csv");
 	std::string str1 = (std::string)makepath(folder, (char *)"interest_person_mapping", (char *)"csv");
 	std::string str2 = (std::string)ipm_sorted;
-	std::string cmd = "sort -S 350M --field-separator=' ' --key=2n " + str1 + " > " + str2;
+	std::string cmd = "sort -S 350M -T " + (std::string)folder + " --field-separator=' ' --key=2n " + str1 + " > " + str2;
 	std::system(cmd.c_str());
 
 	printf(" \t PersonMapping SORTED\n");
