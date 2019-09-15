@@ -210,14 +210,14 @@ void build_inverted_list(char *folder) {
 	unsigned int i, j;
 	unsigned int max_i =  person_length / sizeof(CompressedPerson);
 	CompressedPerson *p;
-	
+	InterestPersonMapping *ipm = new InterestPersonMapping();
 
 	// write interest personoffset
 	char *ipm_debug_file = makepath(folder, (char *)"interest_person_mapping", (char *)"csv");
 	FILE *ipm_debug = fopen(ipm_debug_file, "w");
 	
 	for (i = 0; i < person_length / sizeof(CompressedPerson); i++) {
-		InterestPersonMapping *ipm = new InterestPersonMapping();
+		
 		p = &person_com_map[i];
 
 		for (j = p->interests_first; j < p->interests_first + p->interest_n; j++)
@@ -250,7 +250,6 @@ void build_inverted_list(char *folder) {
 	
 	while (getline(infile, line))
 	{
-		InterestPersonMapping *ipm = new InterestPersonMapping();
 		unsigned int poffset;
 		unsigned short interest;
 
