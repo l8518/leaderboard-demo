@@ -186,8 +186,8 @@ int main(int argc, char *argv[])
 	person_map = (CompressedPerson *)mmapr(makepath((char *)query_path, (char *)"location_friends_mutual_person", (char *)"bin"), &person_length);
 	interest_map = (unsigned short *)mmapr(makepath((char *)query_path, (char *)"location_friends_mutual_interest", (char *)"bin"), &interest_length);
 	knows_map = (unsigned int *)mmapr(makepath((char *)query_path, (char *)"location_friends_mutual_knows", (char *)"bin"), &knows_length);
-	tags_map = (Tag *)mmapr(makepath((char *)query_path, (char *)"tags", (char *)"bin"), &tags_length);
 	postings_map = (unsigned int *)mmapr(makepath((char *)query_path, (char *)"postings", (char *)"bin"), &postings_length);
+	tags_map = (Tag *)mmapr(makepath((char *)query_path, (char *)"tags", (char *)"bin"), &tags_length);
 
 	printf("TAG ELEM: %d \n", tags_length / sizeof(Tag) );
 	printf("Postings ELEM: %d \n", postings_length / sizeof(unsigned int) );
