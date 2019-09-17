@@ -7,6 +7,7 @@
 #include "utils.h"
 #include <chrono>
 #include <map>
+#include <vector>
 #include <algorithm>    // std::max
 #include <string>
 #include <iostream>
@@ -133,38 +134,39 @@ void filter_mutual_friends_and_reduce_interests(char *folder, FILE *knows_out, F
 
 	printf("Enter filter_mutual_friends_and_reduce_interests \n");
 	unsigned int i, j, y;
-	unsigned int max_i = person_length / sizeof(CompressedPerson);;
-	unsigned int max_j;
-	unsigned int max_y;
 	unsigned int new_knows_pos = 0;
 	unsigned long new_interest_pos = 0;
+	unsigned int new_i = 0;
 	CompressedPerson *p, *k;
 	CompressedPerson *new_p = new CompressedPerson();
+	unsigned int keeper[ person_length / sizeof(CompressedPerson)];
 
-	 FILE *debug_person;
-	 if(DEBUG) debug_person  = fopen(makepath(folder, (char *)"debug_person", (char *)"csv"), "w");
-	 FILE *debug_knows;
-	 if(DEBUG) debug_knows = fopen(makepath(folder, (char *)"debug_knows", (char *)"csv"), "w");
-	 FILE *debug_interest;
-	 if(DEBUG) debug_interest = fopen(makepath(folder, (char *)"debug_interest", (char *)"csv"), "w");
+	 	// determine all people to keep.
+	for (i = 0; i < person_length / sizeof(CompressedPerson); i++) {
+		p = &person_com_map[i];
+		keeper[i] =  new_i;
+		if (0 < p->knows_n) {
+			new_i++;
+		}
+	}
 
-	for (i = 0; i < max_i; i++)
+	for (i = 0; i < person_length / sizeof(CompressedPerson); i++)
 	{
 		p = &person_com_map[i];
-		max_j = p->knows_first + p->knows_n;
+		if (p->knows_n == 0) continue;
 
 		unsigned long start_new_knows_pos = new_knows_pos;
 		unsigned long start_new_interest_pos = new_interest_pos;
 		// iterate over all friendships
-		for (j = p->knows_first; j < max_j; j++)
+		for (j = p->knows_first; j < p->knows_first + p->knows_n; j++)
 		{
 			unsigned int offset = knows_map[j];
+
 			k = &person_com_map[offset];
-			max_y = k->knows_first + k->knows_n;
 
 			// check mutual friendship:
 			bool is_mutual = false;
-			for (y = k->knows_first; y < max_y; y++) {
+			for (y = k->knows_first; y < k->knows_first + k->knows_n; y++) {
 				unsigned int offset_to_p = knows_map[y];
 				if (offset_to_p != i) continue;
 				is_mutual = true;
@@ -172,8 +174,8 @@ void filter_mutual_friends_and_reduce_interests(char *folder, FILE *knows_out, F
 			}
 
 			if (is_mutual == true) {
-				fwrite(&offset, sizeof(unsigned int), 1, knows_out);
-				if(DEBUG) fprintf(debug_knows, "%u,\n", offset );
+				unsigned int newOff= keeper[offset];
+				fwrite(&newOff, sizeof(unsigned int), 1, knows_out);
 				new_knows_pos++;
 			}
 		}
@@ -183,7 +185,6 @@ void filter_mutual_friends_and_reduce_interests(char *folder, FILE *knows_out, F
 		{
 			unsigned short interest = interest_map[j];
 			fwrite(&interest, sizeof(unsigned short), 1, interest_out);
-			if(DEBUG) fprintf(debug_interest, "%hu,\n", interest );
 			new_interest_pos++;
 		}
 
@@ -196,15 +197,10 @@ void filter_mutual_friends_and_reduce_interests(char *folder, FILE *knows_out, F
 		new_p->interests_first = (unsigned long)start_new_interest_pos;
 		new_p->interest_n = (unsigned short)(new_interest_pos - start_new_interest_pos);
 
-		if(DEBUG) fprintf(debug_person, "%lu, %hu, %hu, %lu, %hu, %lu, %hu\n", new_p->person_id, new_p->birthday, new_p->location, new_p->knows_first, new_p->knows_n, new_p->interests_first, new_p->interest_n );
-
 		// write binary person record to file
 		fwrite(new_p, sizeof(CompressedPerson), 1, person_out);
 	}
 
-	if(DEBUG) fclose(debug_person);
-	if(DEBUG) fclose(debug_knows);
-	if(DEBUG) fclose(debug_interest);
 	printf("Exit filter_mutual_friends_and_reduce_interests \n");
 }
 
@@ -360,22 +356,6 @@ int main(int argc, char *argv[])
 	munmap(knows_map, knows_length);
 	person_com_map = (CompressedPerson *)mmapr(person_location_output_file, &person_length);
 	knows_map = (unsigned int *)mmapr(knows_location_output_file, &knows_length);
-
-	printf("%d \n", knows_length);
-	// STEP 02: Filter for no friends (as they will not be considerd - only mutal friends)
-	char *person_location_friends_output_file = makepath(folder, (char *)"location_friends_person", (char *)"bin");
-	char *knows_location_friends_output_file = makepath(folder, (char *)"location_friends_knows", (char *)"bin");
-	person_out = open_binout(person_location_friends_output_file);
-	knows_out = open_binout(knows_location_friends_output_file);;
-	filter_person_no_friends(knows_out, person_out);
-	fclose(person_out);
-	fclose(knows_out);
-
-	// Unmap previous person_com_map and remap to processed one:
-	munmap(person_com_map, person_length);
-	munmap(knows_map, knows_length);
-	person_com_map = (CompressedPerson *)mmapr(person_location_friends_output_file, &person_length);
-	knows_map = (unsigned int *)mmapr(knows_location_friends_output_file, &knows_length);
 
 	// STEP 03: Filter for mutual friends only and reduce intersts.bin:
 	char *person_location_friends_mutual_output_file = makepath(folder, (char *)"location_friends_mutual_person", (char *)"bin");
