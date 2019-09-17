@@ -12,6 +12,7 @@
 #include <iostream>
 #include <fstream>
 #include <sstream>
+#include <limits>
 
 
 
@@ -27,11 +28,6 @@ bool DEBUG = false;
 struct InterestPersonMapping {
 	unsigned int poffset = 0;
 	unsigned short interest = 0;
-} ;
-
-struct InterestPersonMappingIndex {
-	unsigned int mapping_first;
-	unsigned short mapping_n;
 } ;
 
 void filter_person_location(FILE *knows_out, FILE *person_out)
@@ -150,6 +146,22 @@ void filter_mutual_friends_and_reduce_interests(char *folder, FILE *knows_out, F
 	printf("Exit filter_mutual_friends_and_reduce_interests \n");
 }
 
+int ipm_comparator(const void *v1, const void *v2)
+{
+	InterestPersonMapping *r1 = (InterestPersonMapping *)v1;
+	InterestPersonMapping *r2 = (InterestPersonMapping *)v2;
+	if (r1->interest > r2->interest)
+		return +1;
+	else if (r1->interest < r2->interest)
+		return -1;
+	else if (r1->poffset < r2->poffset)
+		return +1;
+	else if (r1->poffset > r2->poffset)
+		return -1;
+	else
+		return 0;
+}
+
 void build_inverted_list(char *folder) {
 	printf("Enter build_inverted_list\n");
 	unsigned int i, j;
@@ -157,83 +169,54 @@ void build_inverted_list(char *folder) {
 	CompressedPerson *p;
 	InterestPersonMapping *ipm = new InterestPersonMapping();
 
-	// write interest personoffset
-	char *ipm_debug_file = makepath(folder, (char *)"interest_person_mapping", (char *)"csv");
-	FILE *ipm_debug = fopen(ipm_debug_file, "w");
-	
+	/**
+	 * Create a Mapping between the Interest and the Person
+	 * Afterwards sort that mapping by interest, so we can use it
+	 * to create the bin file that is sorted by interest.
+	 */
+	unsigned int ipm_index = 0;
+	InterestPersonMapping* arr = NULL;
+	arr = new InterestPersonMapping[interest_length / sizeof(unsigned short)];
 	for (i = 0; i < person_length / sizeof(CompressedPerson); i++) {
-		
-		p = &person_com_map[i];
-
-		for (j = p->interests_first; j < p->interests_first + p->interest_n; j++)
-		{
-			unsigned short interest = interest_map[j];
-			ipm->interest = interest;
-			ipm->poffset = i;
-			fprintf(ipm_debug, "%u %hu \n", ipm->poffset, ipm->interest);
-		}
+	 	p = &person_com_map[i];
+	 	for (j = p->interests_first; j < p->interests_first + p->interest_n; j++)
+	 	{
+	 		arr[ipm_index].interest = interest_map[j];
+	 		arr[ipm_index].poffset = i;
+	 		ipm_index++;
+	 	}
 	}
-	fclose(ipm_debug);
+	qsort(arr, ipm_index, sizeof(InterestPersonMapping), &ipm_comparator);
 
-	printf(" \t PersonMapping Sortable written\n");
-
-	fopen(makepath(folder, (char *)"REORG IIL SORTING FILE", (char *)"check"), "w");
-
-	//Sort the Outputfile
-	char *ipm_sorted = makepath(folder, (char *)"interest_person_mapping_sorted", (char *)"csv");
-	std::string str1 = (std::string)makepath(folder, (char *)"interest_person_mapping", (char *)"csv");
-	std::string str2 = (std::string)ipm_sorted;
-	std::string cmd = "sort -S 350M -T " + (std::string)folder + " --field-separator=' ' --key=2n " + str1 + " > " + str2;
-	std::system(cmd.c_str());
-
-	printf(" \t PersonMapping SORTED\n");
-
-	fopen(makepath(folder, (char *)"REORG IIL SORTED FILE", (char *)"check"), "w");
-
-	// write interest personoffset
+	/**
+	 * Write the binary file to rmap later and determine min and max values
+	 * for the interests. If gaps occur, we can consider that for tine inverted
+	 * list, so that the offset == interest.
+	 * */
 	char *interest_person_mapping = makepath(folder, (char *)"interest_person_mapping", (char *)"bin");
 	FILE *ipm_out = open_binout(interest_person_mapping);
-
-	std::ifstream infile(ipm_sorted);
-	std::string line;
 	
-	while (getline(infile, line))
-	{
-		unsigned int poffset;
-		unsigned short interest;
-
-		std::stringstream sl(line);
-		sl >> poffset;
-		sl >> interest;
-		ipm->poffset = poffset;
+	unsigned short max = std::numeric_limits<unsigned short>::min();;
+	unsigned short min = std::numeric_limits<unsigned short>::max();;
+	for (int i = 0; i < ipm_index; i++) {
+		unsigned short interest = arr[i].interest;
+		ipm->poffset = arr[i].poffset;
 		ipm->interest = interest;
+		max = std::max(max, (unsigned short)interest);
+		min = std::min(min, (unsigned short)interest);
 		fwrite(ipm, sizeof(InterestPersonMapping), 1, ipm_out); // Write Interest Person Mapping
 	}
 	fclose(ipm_out);
 
-	fopen(makepath(folder, (char *)"REORG IIL PM Binary Written", (char *)"check"), "w");
-
-	printf(" \t PersonMapping Binary Written\n");
-	
-	int max = 0;
-	int min = 99999999;
-	for (i = 0; i < interest_length / sizeof(unsigned short); i++) {
-		unsigned short interest = interest_map[i];
-		max = std::max(max, (int)interest);
-		min = std::min(min, (int)interest);
-	}
-
-	fopen(makepath(folder, (char *)"REORG IIL Interest Parsed", (char *)"check"), "w");
-
-	printf(" \t Max Interest Value: %d \n", max);
-	printf(" \t Min Interest Value: %d \n", min);
-
+	/**
+	 * Write Tags and Postings, based on the PersonInterestMapping
+	 * */
+	printf(" \t Writing Tag and Postings\n");
 	unsigned long interest_person_mapping_length;
 	InterestPersonMapping *interest_person_map;
 	interest_person_map = (InterestPersonMapping *)mmapr(interest_person_mapping, &interest_person_mapping_length);
 
 	char *tags_path = makepath(folder, (char *)"tags", (char *)"bin");
-	FILE *tag_debug = fopen(makepath(folder, (char *)"debug_tags", (char *)"csv"), "w");
 	FILE *tags_out = open_binout(tags_path);
 	Tag *new_tag = new Tag();
 	unsigned short tag_offset = 0;
@@ -241,11 +224,8 @@ void build_inverted_list(char *folder) {
 	unsigned int current_posting_offset = 0;
 	char *postings_path = makepath(folder, (char *)"postings", (char *)"bin");
 	FILE *postings_out = open_binout(postings_path);
-	FILE *postings_debug = fopen(makepath(folder, (char *)"debug_postings", (char *)"csv"), "w");
 
-	fopen(makepath(folder, (char *)"REORG IIL Writing T+P", (char *)"check"), "w");
-	printf(" \t Writing Tag and Postings\n");
-	unsigned int ipm_index = 0;
+	ipm_index = 0;
 	unsigned int tags_written = 0;
 	InterestPersonMapping *cipm = &interest_person_map[ipm_index];
 	for (unsigned interest = min; interest <= max; interest++) {
@@ -253,22 +233,17 @@ void build_inverted_list(char *folder) {
 
 		while(ipm_index < interest_person_mapping_length / sizeof(InterestPersonMapping) && cipm->interest == interest) {
 			fwrite(&cipm->poffset, sizeof(unsigned int), 1, postings_out);
-			if(DEBUG) fprintf(postings_debug, "%u\n", cipm->poffset);
 			current_posting_offset++;
 			cipm = &interest_person_map[++ipm_index]; // get next ipm
 		}
 
 		new_tag->posting_first = start_posting_offset;
 		new_tag->posting_n = current_posting_offset - start_posting_offset;
-		if(DEBUG) fprintf(tag_debug, "%u, %hu\n", new_tag->posting_first, new_tag->posting_n);
 		fwrite(new_tag, sizeof(Tag), 1, tags_out);
 		tags_written++;
 	}
 	fclose(tags_out);
 	fclose(postings_out);
-	fclose(tag_debug);
-	fclose(postings_debug);
-	fopen(makepath(folder, (char *)"REORG IIL ALL DONE", (char *)"check"), "w");
 	printf(" \t Finished Writing Tag (%d) and Postings(%u)\n", tags_written, current_posting_offset);
 }
 
