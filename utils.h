@@ -32,6 +32,11 @@ typedef struct {
 	unsigned short posting_n;
 } Tag;
 
+typedef struct {
+	unsigned int person_first;
+	unsigned short person_n;
+} Date;
+
 typedef struct { 
     unsigned long  person_id;
     unsigned long  knows_id;

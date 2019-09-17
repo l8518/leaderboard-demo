@@ -242,6 +242,9 @@ void sort_person(char *folder) {
 	// Sort Person After Birthday And Update Knows.bin
 	PersonBirthdayMapping* person_birthday_mapping = NULL;
 	person_birthday_mapping = new PersonBirthdayMapping[person_length / sizeof(CompressedPerson)];
+	unsigned short bday_max = std::numeric_limits<unsigned short>::min();;
+	unsigned short bday_min = std::numeric_limits<unsigned short>::max();;
+
 	// Current Order - whatever it is!
 	for (unsigned int i = 0; i < person_length / sizeof(CompressedPerson); i++) {
 	 	CompressedPerson *p = &person_com_map[i];
@@ -253,6 +256,8 @@ void sort_person(char *folder) {
 		person_birthday_mapping[i].interest_n = p->interest_n;
 		person_birthday_mapping[i].birthday = p->birthday;
 		person_birthday_mapping[i].old_offset = (unsigned int)i;
+		bday_max = std::max(bday_max, (unsigned short)p->birthday);
+		bday_min = std::min(bday_max, (unsigned short)p->birthday);
 	}
 
 	qsort(person_birthday_mapping, person_length / sizeof(CompressedPerson), sizeof(PersonBirthdayMapping), &pbm_comparator);
@@ -266,38 +271,57 @@ void sort_person(char *folder) {
 	// Define Output files
 	char *person_file = makepath(folder, (char *)"person_bsort", (char *)"bin");
 	char *knows_file = makepath(folder, (char *)"knows_bsort", (char *)"bin");
+	char *date_file = makepath(folder, (char *)"date", (char *)"bin");
 	FILE *person_out = open_binout(person_file);
 	FILE *knows_out = open_binout(knows_file);
+	FILE *date_out = open_binout(date_file);
 
+	unsigned short current_birthday = person_birthday_mapping[0].birthday;
+	unsigned int current_person_pos = 0;
+	unsigned int start_current_person_pos = 0;
 	unsigned int new_knows_pos = 0;
+
 	PersonBirthdayMapping *p;
 	CompressedPerson *new_p = new CompressedPerson();
-	for (unsigned int i = 0; i < person_length / sizeof(CompressedPerson); i++)
-	{
-		p = &person_birthday_mapping[i];
-		// TODO Write Birthday Index
+	Date *new_date = new Date();
+	for (unsigned short current_bday = 0; current_bday <= bday_max; current_bday++) {
+		start_current_person_pos = current_person_pos;
 
-		// iterate over all friendships
-		unsigned long start_new_knows_pos = new_knows_pos;
-
-		for (unsigned int j = p->knows_first; j < p->knows_first + p->knows_n; j++)
+		for (unsigned int i = start_current_person_pos; i < person_length / sizeof(CompressedPerson); i++)
 		{
-			unsigned int offset = offset_map[knows_map[j]];
-			fwrite(&offset, sizeof(unsigned int), 1, knows_out);
-			new_knows_pos++;
+			p = &person_birthday_mapping[i];
+
+			// skip person writing, if this is not equal.
+			if (p->birthday != current_bday) break;
+
+			// iterate over all friendships
+			unsigned long start_new_knows_pos = new_knows_pos;
+
+			for (unsigned int j = p->knows_first; j < p->knows_first + p->knows_n; j++)
+			{
+				unsigned int offset = offset_map[knows_map[j]];
+				fwrite(&offset, sizeof(unsigned int), 1, knows_out);
+				new_knows_pos++;
+			}
+
+			// Write Binary Version:
+			new_p->person_id = p->person_id;
+			new_p->birthday = p->birthday;
+			new_p->knows_first = start_new_knows_pos;
+			new_p->knows_n = (new_knows_pos - start_new_knows_pos);
+			new_p->interests_first = p->interests_first;
+			new_p->interest_n = p->interest_n;
+
+			// write binary person record to file
+			fwrite(new_p, sizeof(CompressedPerson), 1, person_out);
+			current_person_pos++;
 		}
 
-		// Write Binary Version:
-		new_p->person_id = p->person_id;
-		new_p->birthday = p->birthday;
-		new_p->knows_first = start_new_knows_pos;
-		new_p->knows_n = (new_knows_pos - start_new_knows_pos);
-		new_p->interests_first = p->interests_first;
-		new_p->interest_n = p->interest_n;
-
-		// write binary person record to file
-		fwrite(new_p, sizeof(CompressedPerson), 1, person_out);
+		new_date->person_first = start_current_person_pos;
+		new_date->person_n = start_current_person_pos;
+		fwrite(new_p, sizeof(Date), 1, date_out);
 	}
+
 
 	// free memory:
 	delete new_p;
