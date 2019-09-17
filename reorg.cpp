@@ -7,7 +7,6 @@
 #include "utils.h"
 #include <chrono>
 #include <map>
-#include <vector>
 #include <algorithm>    // std::max
 #include <string>
 #include <iostream>
@@ -79,57 +78,6 @@ void filter_person_location(FILE *knows_out, FILE *person_out)
 	}
 }
 
-void filter_person_no_friends(FILE *knows_out, FILE *person_out) {
-	unsigned int i, max_i;
-	unsigned int j, max_j;
-	unsigned int new_i = 0;
-	unsigned int new_knows_pos = 0;
-	max_i = person_length / sizeof(CompressedPerson);
-	std::map<int, unsigned int> keeper;
-	CompressedPerson *p, *k;
-	CompressedPerson *new_p = new CompressedPerson();
-	
-	// determine all people to keep.
-	for (i = 0; i < max_i; i++) {
-		p = &person_com_map[i];
-		if (p->knows_n == 0) continue;
-		keeper[i] = new_i;
-		new_i++;
-	}
-
-	for (i = 0; i < max_i; i++)
-	{
-		if (keeper.find(i) == keeper.end()) continue;
-
-		p = &person_com_map[i];
-		max_j = p->knows_first + p->knows_n;
-
-		unsigned int start_new_knows_pos = new_knows_pos;
-		// iterate over all friendships
-		for (j = p->knows_first; j < max_j; j++)
-		{
-			unsigned int offset = knows_map[j];
-			if (keeper.find(offset) == keeper.end()) continue;
-			unsigned int newOff= keeper[offset];
-			fwrite(&newOff, sizeof(unsigned int), 1, knows_out);
-			new_knows_pos++;
-		}
-
-		// Write Binary Version:
-		new_p->person_id = (unsigned long)p->person_id;
-		new_p->birthday = (unsigned short)p->birthday;
-		new_p->location = (unsigned short)p->location;
-		new_p->knows_first = (unsigned long)start_new_knows_pos;
-		new_p->knows_n = (unsigned short)(new_knows_pos - start_new_knows_pos);
-		new_p->interests_first = (unsigned long)p->interests_first;
-		new_p->interest_n = (unsigned short)p->interest_n;
-
-		// write binary person record to file
-		fwrite(new_p, sizeof(CompressedPerson), 1, person_out);
-	}
-
-}
-
 void filter_mutual_friends_and_reduce_interests(char *folder, FILE *knows_out, FILE *person_out, FILE *interest_out) {
 
 	printf("Enter filter_mutual_friends_and_reduce_interests \n");
@@ -137,18 +85,16 @@ void filter_mutual_friends_and_reduce_interests(char *folder, FILE *knows_out, F
 	unsigned int new_knows_pos = 0;
 	unsigned long new_interest_pos = 0;
 	unsigned int new_i = 0;
+	unsigned int* offset_map = NULL;
 	CompressedPerson *p, *k;
 	CompressedPerson *new_p = new CompressedPerson();
-	unsigned int keeper[ person_length / sizeof(CompressedPerson)];
 
-	 	// determine all people to keep.
-	for (i = 0; i < person_length / sizeof(CompressedPerson); i++) {
-		p = &person_com_map[i];
-		keeper[i] =  new_i;
-		if (0 < p->knows_n) {
-			new_i++;
-		}
-	}
+
+	offset_map = new unsigned int[person_length / sizeof(CompressedPerson)];
+
+	// Calculate the mapping of current person.bin offsets and the new offsets if person removed;
+	for (i = 0; i < person_length / sizeof(CompressedPerson); i++)
+		offset_map[i] = (0 == (&person_com_map[i])->knows_n) ? new_i : new_i++;;
 
 	for (i = 0; i < person_length / sizeof(CompressedPerson); i++)
 	{
@@ -174,7 +120,7 @@ void filter_mutual_friends_and_reduce_interests(char *folder, FILE *knows_out, F
 			}
 
 			if (is_mutual == true) {
-				unsigned int newOff= keeper[offset];
+				unsigned int newOff= offset_map[offset];
 				fwrite(&newOff, sizeof(unsigned int), 1, knows_out);
 				new_knows_pos++;
 			}
