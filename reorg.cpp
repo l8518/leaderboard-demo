@@ -18,7 +18,6 @@
 
 // Variables:
 unsigned long person_length, knows_length, interest_length;
-Person *person_map;
 CompressedPerson *person_com_map;
 unsigned int *knows_map;
 unsigned short *interest_map;
@@ -30,8 +29,22 @@ struct InterestPersonMapping {
 	unsigned short interest = 0;
 } ;
 
-void filter_person_location(FILE *knows_out, FILE *person_out)
+void filter_person_location(char *folder)
 {
+	// Map relevant files:
+	Person *person_map;
+	char *person_output_file = makepath(folder, (char *)"person", (char *)"bin");
+	char *knows_output_file = makepath(folder, (char *)"knows", (char *)"bin");
+	person_map = (Person *)mmapr(person_output_file, &person_length);
+	knows_map = (unsigned int *)mmapr(knows_output_file, &knows_length);
+	
+	// Define + Open Output Files:
+	char *person_location_output_file = makepath(folder, (char *)"location_person", (char *)"bin");
+	char *knows_location_output_file = makepath(folder, (char *)"location_knows", (char *)"bin");
+
+	FILE *knows_out = open_binout(knows_location_output_file);
+	FILE *person_out = open_binout(person_location_output_file);;
+
 	unsigned int i, max_i;
 	unsigned int j, max_j;
 	unsigned int new_knows_pos = 0;
@@ -72,9 +85,30 @@ void filter_person_location(FILE *knows_out, FILE *person_out)
 		// write binary person record to file
 		fwrite(new_p, sizeof(CompressedPerson), 1, person_out);
 	}
+
+	fclose(person_out);
+	fclose(knows_out);
+
+	// Remap files:
+	munmap(person_map, person_length);
+	munmap(knows_map, knows_length);
+	person_com_map = (CompressedPerson *)mmapr(person_location_output_file, &person_length);
+	knows_map = (unsigned int *)mmapr(knows_location_output_file, &knows_length);
 }
 
-void filter_mutual_friends_and_reduce_interests(char *folder, FILE *knows_out, FILE *person_out, FILE *interest_out) {
+void filter_mutual_friends_and_reduce_interests(char *folder) {
+
+	// Map files
+	char *interest_output_file = makepath(folder, (char *)"interest", (char *)"bin");
+	interest_map = (unsigned short *)mmapr(interest_output_file, &interest_length);
+
+	// Define Output files
+	char *person_location_friends_mutual_output_file = makepath(folder, (char *)"location_friends_mutual_person", (char *)"bin");
+	char *knows_location_friends_mutual_output_file = makepath(folder, (char *)"location_friends_mutual_knows", (char *)"bin");
+	char *interest_location_friends_mutual_output_file = makepath(folder, (char *)"location_friends_mutual_interest", (char *)"bin");
+	FILE *person_out = open_binout(person_location_friends_mutual_output_file);
+	FILE *knows_out = open_binout(knows_location_friends_mutual_output_file);;
+	FILE *interest_out = open_binout(interest_location_friends_mutual_output_file);;
 
 	printf("Enter filter_mutual_friends_and_reduce_interests \n");
 	unsigned int i, j, y;
@@ -144,6 +178,17 @@ void filter_mutual_friends_and_reduce_interests(char *folder, FILE *knows_out, F
 	}
 
 	printf("Exit filter_mutual_friends_and_reduce_interests \n");
+
+	fclose(person_out);
+	fclose(knows_out);
+	fclose(interest_out);
+
+	munmap(person_com_map, person_length);
+	munmap(knows_map, knows_length);
+	munmap(interest_map, interest_length);
+	person_com_map = (CompressedPerson *)mmapr(person_location_friends_mutual_output_file, &person_length);
+	knows_map = (unsigned int *)mmapr(knows_location_friends_mutual_output_file, &knows_length);
+	interest_map = (unsigned short *)mmapr(interest_location_friends_mutual_output_file, &interest_length);
 }
 
 int ipm_comparator(const void *v1, const void *v2)
@@ -254,49 +299,13 @@ int main(int argc, char *argv[])
 	auto t1 = std::chrono::high_resolution_clock::now();
 
 	char *folder = argv[1];
-	char *person_output_file = makepath(folder, (char *)"person", (char *)"bin");
-	char *interest_output_file = makepath(folder, (char *)"interest", (char *)"bin");
-	char *knows_output_file = makepath(folder, (char *)"knows", (char *)"bin");
-	// MMAP source files
-	person_map = (Person *)mmapr(person_output_file, &person_length);
-	knows_map = (unsigned int *)mmapr(knows_output_file, &knows_length);
-	interest_map = (unsigned short *)mmapr(interest_output_file, &interest_length);
 
 	// STEP 01: Filter for locality
-	char *person_location_output_file = makepath(folder, (char *)"location_person", (char *)"bin");
-	char *knows_location_output_file = makepath(folder, (char *)"location_knows", (char *)"bin");
-	FILE *knows_out = open_binout(knows_location_output_file);
-	FILE *person_out = open_binout(person_location_output_file);;
-	filter_person_location(knows_out, person_out);
-	fclose(person_out);
-	fclose(knows_out);
-
-	// Unmap previous person_map and remap to processed one:
-	printf("%d \n", knows_length);
-	munmap(person_map, person_length);
-	munmap(knows_map, knows_length);
-	person_com_map = (CompressedPerson *)mmapr(person_location_output_file, &person_length);
-	knows_map = (unsigned int *)mmapr(knows_location_output_file, &knows_length);
+	filter_person_location(folder);
 
 	// STEP 03: Filter for mutual friends only and reduce intersts.bin:
-	char *person_location_friends_mutual_output_file = makepath(folder, (char *)"location_friends_mutual_person", (char *)"bin");
-	char *knows_location_friends_mutual_output_file = makepath(folder, (char *)"location_friends_mutual_knows", (char *)"bin");
-	char *interest_location_friends_mutual_output_file = makepath(folder, (char *)"location_friends_mutual_interest", (char *)"bin");
-	person_out = open_binout(person_location_friends_mutual_output_file);
-	knows_out = open_binout(knows_location_friends_mutual_output_file);;
-	FILE *interest_out = open_binout(interest_location_friends_mutual_output_file);;
-	filter_mutual_friends_and_reduce_interests(folder, knows_out, person_out, interest_out);
-	fclose(person_out);
-	fclose(knows_out);
-	fclose(interest_out);
+	filter_mutual_friends_and_reduce_interests(folder);
 
-	// Remap for counting:
-	munmap(person_com_map, person_length);
-	munmap(knows_map, knows_length);
-	munmap(interest_map, interest_length);
-	person_com_map = (CompressedPerson *)mmapr(person_location_friends_mutual_output_file, &person_length);
-	knows_map = (unsigned int *)mmapr(knows_location_friends_mutual_output_file, &knows_length);
-	interest_map = (unsigned short *)mmapr(interest_location_friends_mutual_output_file, &interest_length);
 	
 	// build interest inverted lists:	
 	build_inverted_list(folder);
