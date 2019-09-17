@@ -297,13 +297,9 @@ int main(int argc, char *argv[])
 	person_com_map = (CompressedPerson *)mmapr(person_location_friends_mutual_output_file, &person_length);
 	knows_map = (unsigned int *)mmapr(knows_location_friends_mutual_output_file, &knows_length);
 	interest_map = (unsigned short *)mmapr(interest_location_friends_mutual_output_file, &interest_length);
-
-	fopen(makepath(folder, (char *)"REORG_STEP01_OKAY", (char *)"check"), "w");
-
+	
 	// build interest inverted lists:	
 	build_inverted_list(folder);
-
-	fopen(makepath(folder, (char *)"REORG_OKAY", (char *)"check"), "w");
 
 	printf("Finished reorg \n");
 	printf("Lines in latest person.bin: \t %u \n", person_length / sizeof(CompressedPerson) );
