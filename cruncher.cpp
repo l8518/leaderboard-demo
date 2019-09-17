@@ -167,8 +167,8 @@ int main(int argc, char *argv[])
 	const char *query_path = (argv[1]);
 
 	/* memory-map files created by loader */
-	person_map = (CompressedPerson *)mmapr(makepath((char *)query_path, (char *)"location_friends_mutual_person", (char *)"bin"), &person_length);
-	knows_map = (unsigned int *)mmapr(makepath((char *)query_path, (char *)"location_friends_mutual_knows", (char *)"bin"), &knows_length);
+	person_map = (CompressedPerson *)mmapr(makepath((char *)query_path, (char *)"person_bsort", (char *)"bin"), &person_length);
+	knows_map = (unsigned int *)mmapr(makepath((char *)query_path, (char *)"knows_bsort", (char *)"bin"), &knows_length);
 	postings_map = (unsigned int *)mmapr(makepath((char *)query_path, (char *)"postings", (char *)"bin"), &postings_length);
 	tags_map = (Tag *)mmapr(makepath((char *)query_path, (char *)"tags", (char *)"bin"), &tags_length);
 

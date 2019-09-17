@@ -88,7 +88,7 @@ void filter_person_location(char *folder)
 
 	fclose(person_out);
 	fclose(knows_out);
-
+	delete new_p;
 	// Remap files:
 	munmap(person_map, person_length);
 	munmap(knows_map, knows_length);
@@ -177,6 +177,9 @@ void filter_mutual_friends_and_reduce_interests(char *folder) {
 		fwrite(new_p, sizeof(CompressedPerson), 1, person_out);
 	}
 
+	delete offset_map;
+	delete new_p;
+
 	printf("Exit filter_mutual_friends_and_reduce_interests \n");
 
 	fclose(person_out);
@@ -207,6 +210,110 @@ int ipm_comparator(const void *v1, const void *v2)
 		return 0;
 }
 
+struct PersonBirthdayMapping {
+	unsigned long  person_id;
+	unsigned long  knows_first;
+	unsigned long  interests_first;
+	unsigned short knows_n;
+	unsigned short interest_n;
+	unsigned short birthday;
+	unsigned int old_offset;
+} ;
+
+int pbm_comparator(const void *v1, const void *v2)
+{
+	PersonBirthdayMapping *r1 = (PersonBirthdayMapping *)v1;
+	PersonBirthdayMapping *r2 = (PersonBirthdayMapping *)v2;
+	if (r1->birthday > r2->birthday)
+		return +1;
+	else if (r1->birthday < r2->birthday)
+		return -1;
+	else if (r1->old_offset > r2->old_offset)
+		return +1;
+	else if (r1->old_offset < r2->old_offset)
+		return -1;
+	else
+		return 0;
+}
+
+void sort_person(char *folder) {
+	printf("Enter sort_person\n");
+	// Sort Person After Birthday And Update Knows.bin
+	PersonBirthdayMapping* person_birthday_mapping = NULL;
+	person_birthday_mapping = new PersonBirthdayMapping[person_length / sizeof(CompressedPerson)];
+	// Current Order - whatever it is!
+	for (unsigned int i = 0; i < person_length / sizeof(CompressedPerson); i++) {
+	 	CompressedPerson *p = &person_com_map[i];
+		person_birthday_mapping[i].person_id = p->person_id;
+		person_birthday_mapping[i].knows_first = p->knows_first;
+		person_birthday_mapping[i].interests_first = p->interests_first;
+		person_birthday_mapping[i].birthday = p->birthday;
+		person_birthday_mapping[i].knows_n = p->knows_n;
+		person_birthday_mapping[i].interest_n = p->interest_n;
+		person_birthday_mapping[i].birthday = p->birthday;
+		person_birthday_mapping[i].old_offset = (unsigned int)i;
+	}
+
+	qsort(person_birthday_mapping, person_length / sizeof(CompressedPerson), sizeof(PersonBirthdayMapping), &pbm_comparator);
+
+	unsigned int* offset_map = NULL;
+	offset_map = new unsigned int[person_length / sizeof(CompressedPerson)];
+	for (unsigned int i = 0; i < person_length / sizeof(CompressedPerson); i++) {
+		offset_map[person_birthday_mapping[i].old_offset] = i;
+	}
+
+	// Define Output files
+	char *person_file = makepath(folder, (char *)"person_bsort", (char *)"bin");
+	char *knows_file = makepath(folder, (char *)"knows_bsort", (char *)"bin");
+	FILE *person_out = open_binout(person_file);
+	FILE *knows_out = open_binout(knows_file);
+
+	unsigned int new_knows_pos = 0;
+	PersonBirthdayMapping *p;
+	CompressedPerson *new_p = new CompressedPerson();
+	for (unsigned int i = 0; i < person_length / sizeof(CompressedPerson); i++)
+	{
+		p = &person_birthday_mapping[i];
+		// TODO Write Birthday Index
+
+		// iterate over all friendships
+		unsigned long start_new_knows_pos = new_knows_pos;
+
+		for (unsigned int j = p->knows_first; j < p->knows_first + p->knows_n; j++)
+		{
+			unsigned int offset = offset_map[knows_map[j]];
+			fwrite(&offset, sizeof(unsigned int), 1, knows_out);
+			new_knows_pos++;
+		}
+
+		// Write Binary Version:
+		new_p->person_id = p->person_id;
+		new_p->birthday = p->birthday;
+		new_p->knows_first = start_new_knows_pos;
+		new_p->knows_n = (new_knows_pos - start_new_knows_pos);
+		new_p->interests_first = p->interests_first;
+		new_p->interest_n = p->interest_n;
+
+		// write binary person record to file
+		fwrite(new_p, sizeof(CompressedPerson), 1, person_out);
+	}
+
+	// free memory:
+	delete new_p;
+	delete offset_map;
+	delete person_birthday_mapping;
+
+	fclose(person_out);
+	fclose(knows_out);
+
+	munmap(person_com_map, person_length);
+	munmap(knows_map, knows_length);
+	person_com_map = (CompressedPerson *)mmapr(person_file, &person_length);
+	knows_map = (unsigned int *)mmapr(knows_file, &knows_length);
+
+	printf("Exit sort_person\n");
+}
+
 void build_inverted_list(char *folder) {
 	printf("Enter build_inverted_list\n");
 	unsigned int i, j;
@@ -231,6 +338,7 @@ void build_inverted_list(char *folder) {
 	 		ipm_index++;
 	 	}
 	}
+
 	qsort(arr, ipm_index, sizeof(InterestPersonMapping), &ipm_comparator);
 
 	/**
@@ -252,6 +360,8 @@ void build_inverted_list(char *folder) {
 		fwrite(ipm, sizeof(InterestPersonMapping), 1, ipm_out); // Write Interest Person Mapping
 	}
 	fclose(ipm_out);
+	delete arr;
+	delete ipm;
 
 	/**
 	 * Write Tags and Postings, based on the PersonInterestMapping
@@ -289,6 +399,7 @@ void build_inverted_list(char *folder) {
 	}
 	fclose(tags_out);
 	fclose(postings_out);
+	delete new_tag;
 	printf(" \t Finished Writing Tag (%d) and Postings(%u)\n", tags_written, current_posting_offset);
 }
 
@@ -306,7 +417,8 @@ int main(int argc, char *argv[])
 	// STEP 03: Filter for mutual friends only and reduce intersts.bin:
 	filter_mutual_friends_and_reduce_interests(folder);
 
-	
+	sort_person(folder);
+
 	// build interest inverted lists:	
 	build_inverted_list(folder);
 
