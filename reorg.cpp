@@ -13,6 +13,7 @@
 #include <fstream>
 #include <sstream>
 #include <limits>
+#include <math.h>
 
 
 
@@ -316,52 +317,79 @@ void sort_person(char *folder) {
 
 void build_inverted_list(char *folder) {
 	printf("Enter build_inverted_list\n");
-	unsigned int i, j;
-	unsigned int max_i =  person_length / sizeof(CompressedPerson);
-	CompressedPerson *p;
-	InterestPersonMapping *ipm = new InterestPersonMapping();
+	// unsigned int i, j;
+	// unsigned int max_i =  person_length / sizeof(CompressedPerson);
+	// 
 
-	/**
-	 * Create a Mapping between the Interest and the Person
-	 * Afterwards sort that mapping by interest, so we can use it
-	 * to create the bin file that is sorted by interest.
-	 */
-	unsigned int ipm_index = 0;
-	InterestPersonMapping* arr = NULL;
-	arr = new InterestPersonMapping[interest_length / sizeof(unsigned short)];
-	for (i = 0; i < person_length / sizeof(CompressedPerson); i++) {
-	 	p = &person_com_map[i];
-	 	for (j = p->interests_first; j < p->interests_first + p->interest_n; j++)
-	 	{
-	 		arr[ipm_index].interest = interest_map[j];
-	 		arr[ipm_index].poffset = i;
-	 		ipm_index++;
-	 	}
-	}
+	InterestPersonMapping *ipm;
 
-	qsort(arr, ipm_index, sizeof(InterestPersonMapping), &ipm_comparator);
 
-	/**
-	 * Write the binary file to rmap later and determine min and max values
-	 * for the interests. If gaps occur, we can consider that for tine inverted
-	 * list, so that the offset == interest.
-	 * */
-	char *interest_person_mapping = makepath(folder, (char *)"interest_person_mapping", (char *)"bin");
-	FILE *ipm_out = open_binout(interest_person_mapping);
-	
+	// Splitup files:
 	unsigned short max = std::numeric_limits<unsigned short>::min();;
 	unsigned short min = std::numeric_limits<unsigned short>::max();;
-	for (int i = 0; i < ipm_index; i++) {
-		unsigned short interest = arr[i].interest;
-		ipm->poffset = arr[i].poffset;
-		ipm->interest = interest;
+
+	for (int i = 0; i < interest_length / sizeof(unsigned short); i++) {
+		unsigned short interest = interest_map[i];
 		max = std::max(max, (unsigned short)interest);
 		min = std::min(min, (unsigned short)interest);
-		fwrite(ipm, sizeof(InterestPersonMapping), 1, ipm_out); // Write Interest Person Mapping
+	}
+
+	// Split into speparate buckets
+	
+	const int max_files = 10;
+	const int interest_range = ceil(max / max_files) + 1;
+	FILE *interest_buckets[10];
+	for (int i = 0; i < max_files; i++) {
+		std::string filepart = "interest_split_" + std::to_string(i);
+		char *file_name = makepath(folder, (char *)filepart.c_str(), (char *)"bin");
+		interest_buckets[i] = fopen(file_name, "wb");
+	}
+
+	unsigned int ipm_index = 0;
+	ipm = new InterestPersonMapping();
+	CompressedPerson *p;
+	for (int i = 0; i < person_length / sizeof(CompressedPerson); i++) {
+	 	p = &person_com_map[i];
+		 
+	 	for (int j = p->interests_first; j < p->interests_first + p->interest_n; j++)
+	 	{
+			unsigned short interest = interest_map[j];
+			ipm->interest = interest;
+			ipm->poffset = i;
+			int bucket = floor(interest / interest_range);
+			fwrite(ipm, sizeof(InterestPersonMapping), 1, interest_buckets[bucket]);
+	 	}
+	}
+	delete ipm;
+	// delete p;
+
+	for (int i = 0; i < max_files; i++) {
+		fclose(interest_buckets[i]);
+	}
+
+	
+	unsigned long ipm_length;
+	char *interest_person_mapping = makepath(folder, (char *)"interest_person_mapping", (char *)"bin");
+	FILE *ipm_out = open_binout(interest_person_mapping);
+	for (int i = 0; i < max_files; i++) {
+		std::string filepart = "interest_split_" + std::to_string(i);
+		char *file_name = makepath(folder, (char *)filepart.c_str(), (char *)"bin");
+		InterestPersonMapping *ipm_map = (InterestPersonMapping *)mmaprw(file_name, &ipm_length);
+		qsort(ipm_map, ipm_length / sizeof(InterestPersonMapping), sizeof(InterestPersonMapping), &ipm_comparator);
+		// append to the file
+		for (int y = 0; y < ipm_length / sizeof(InterestPersonMapping); y++) {
+			ipm = &ipm_map[y];
+			fwrite(ipm, sizeof(InterestPersonMapping), 1, ipm_out);
+		}
+		munmap(ipm_map, ipm_length);
 	}
 	fclose(ipm_out);
-	delete arr;
-	delete ipm;
+
+	for (int i = 0; i < max_files; i++) {
+		std::string filepart = "interest_split_" + std::to_string(i);
+		char *file_name = makepath(folder, (char *)filepart.c_str(), (char *)"bin");
+		remove(file_name);
+	}
 
 	/**
 	 * Write Tags and Postings, based on the PersonInterestMapping
@@ -427,7 +455,7 @@ int main(int argc, char *argv[])
 	printf("Lines in latest knows.bin: \t %u \n", knows_length / sizeof(unsigned int) );
 	printf("Lines in latest interest.bin: \t %u \n", interest_length / sizeof(unsigned short) );
 
-	//take time:
+	// take time:
 	auto t2 = std::chrono::high_resolution_clock::now();
 	auto duration = std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1).count();
 
