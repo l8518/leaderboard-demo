@@ -15,6 +15,8 @@
 #include <iostream>
 #include <vector>
 #include <dirent.h>
+#include <bits/stdc++.h> 
+#include <algorithm>
 
 #include "utils.h"
 
@@ -30,9 +32,10 @@ CompressedPerson *person_map;
 unsigned int *knows_map;
 Tag *tags_map;
 unsigned int *postings_map;
+Date *date_map;
 std::unordered_map<unsigned int, char> map;
 
-unsigned long person_length, knows_length, tags_length, postings_length;
+unsigned long person_length, knows_length, tags_length, postings_length, date_length;
 
 FILE *outfile;
 
@@ -67,9 +70,52 @@ void calculate_bitmap(unsigned short artist, std::vector<bool> *bitmap) {
 	}
 }
 
-void fetch_postings(Tag *t, Tag *t2, std::vector<bool> *bitmap) {
+unsigned int lower_bound(unsigned int *a, unsigned int s, unsigned int e, unsigned int v) {
+
+	int i = s;
+	int j = e;
+	int m;
+	while (i <= j) {
+		m = (i + j) / 2;
+
+		if (v < a[m])
+			j = m - 1;
+		else if (v > a[m])
+			i = m + 1;
+		else
+			return m;
+	}
+	return std::max(s, (unsigned int)m);
+}
+
+unsigned int upper_bound(unsigned int *a, unsigned int s, unsigned int e, unsigned int v) {
+
+	int i = s;
+	int j = e;
+	int m;
+	while (i <= j) {
+		m = (i + j) / 2;
+		if (v < a[m])
+			j = m - 1;
+		else if (v > a[m])
+			i = m + 1;
+		else
+			return m;
+	}
+	return std::min(e, (unsigned int) m + 1);
+}
+
+
+void fetch_postings(Tag *t, Tag *t2, std::vector<bool> *bitmap, unsigned int poffset_lower, unsigned int poffset_upper) {
+
+	unsigned int start = t->posting_first;
+	unsigned int end = t2->posting_first - 1;
+
+	unsigned int bs = lower_bound(postings_map, start, end, poffset_lower);
+	unsigned int be = upper_bound(postings_map, start, end, poffset_upper);
+
 	// TODO: Here is an issue with n (don't know why -> probs reorg)
-	for (unsigned int i = t->posting_first; i < t2->posting_first; i++ ) {
+	for (unsigned int i = bs; i < be; i++ ) {
 		unsigned int poffset = postings_map[i];
 
 		// candidates should not like A1
@@ -84,19 +130,27 @@ void fetch_postings(Tag *t, Tag *t2, std::vector<bool> *bitmap) {
 	}
 }
 
-void build_person_candidates(unsigned short a2, unsigned short a3, unsigned short a4, std::vector<bool> *bitmap) {
-	fetch_postings(&tags_map[a2], &tags_map[a2+1], bitmap);
-	fetch_postings(&tags_map[a3], &tags_map[a3+1], bitmap);
-	fetch_postings(&tags_map[a4], &tags_map[a4+1], bitmap);
+void build_person_candidates(unsigned short a2, unsigned short a3, unsigned short a4, std::vector<bool> *bitmap, unsigned int poffset_lower, unsigned int poffset_upper) {
+	std::cout << "Interst\t" << a2 << std::endl;
+	fetch_postings(&tags_map[a2], &tags_map[a2+1], bitmap, poffset_lower, poffset_upper);
+	std::cout << "Interst\t" << a3 << std::endl;
+	fetch_postings(&tags_map[a3], &tags_map[a3+1], bitmap, poffset_lower, poffset_upper);
+	std::cout << "Interst\t" << a4 << std::endl;
+	fetch_postings(&tags_map[a4], &tags_map[a4+1], bitmap, poffset_lower, poffset_upper);
 }
 
 void query(unsigned short qid, unsigned short artist, unsigned short areltd[], unsigned short bdstart, unsigned short bdend)
 {
 	std::vector<bool> bitmap(person_length / sizeof(CompressedPerson));
+	Date *start_date, *end_date;
+	start_date = &date_map[bdstart];
+	end_date = &date_map[bdend+1];
+
+	std::cout << bdstart << "  --  " << bdend << std::endl;
 	map.clear();
 
 	calculate_bitmap(artist, &bitmap);
-	build_person_candidates(areltd[0], areltd[1], areltd[2], &bitmap);
+	build_person_candidates(areltd[0], areltd[1], areltd[2], &bitmap, start_date->person_first, end_date->person_first);
 
 	unsigned int result_length = 0, result_idx, result_set_size = 15000;
 	unsigned int kpoffset;
@@ -171,6 +225,7 @@ int main(int argc, char *argv[])
 	knows_map = (unsigned int *)mmapr(makepath((char *)query_path, (char *)"knows_bsort", (char *)"bin"), &knows_length);
 	postings_map = (unsigned int *)mmapr(makepath((char *)query_path, (char *)"postings", (char *)"bin"), &postings_length);
 	tags_map = (Tag *)mmapr(makepath((char *)query_path, (char *)"tags", (char *)"bin"), &tags_length);
+	date_map = (Date *)mmapr(makepath((char *)query_path, (char *)"date", (char *)"bin"), &date_length);
 
 	outfile = fopen(argv[3], "w");
 	if (outfile == NULL)

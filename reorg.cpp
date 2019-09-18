@@ -203,9 +203,9 @@ int ipm_comparator(const void *v1, const void *v2)
 		return +1;
 	else if (r1->interest < r2->interest)
 		return -1;
-	else if (r1->poffset < r2->poffset)
-		return +1;
 	else if (r1->poffset > r2->poffset)
+		return +1;
+	else if (r1->poffset < r2->poffset)
 		return -1;
 	else
 		return 0;
@@ -257,7 +257,7 @@ void sort_person(char *folder) {
 		person_birthday_mapping[i].birthday = p->birthday;
 		person_birthday_mapping[i].old_offset = (unsigned int)i;
 		bday_max = std::max(bday_max, (unsigned short)p->birthday);
-		bday_min = std::min(bday_max, (unsigned short)p->birthday);
+		bday_min = std::min(bday_min, (unsigned short)p->birthday);
 	}
 
 	qsort(person_birthday_mapping, person_length / sizeof(CompressedPerson), sizeof(PersonBirthdayMapping), &pbm_comparator);
@@ -276,7 +276,6 @@ void sort_person(char *folder) {
 	FILE *knows_out = open_binout(knows_file);
 	FILE *date_out = open_binout(date_file);
 
-	unsigned short current_birthday = person_birthday_mapping[0].birthday;
 	unsigned int current_person_pos = 0;
 	unsigned int start_current_person_pos = 0;
 	unsigned int new_knows_pos = 0;
@@ -318,8 +317,8 @@ void sort_person(char *folder) {
 		}
 
 		new_date->person_first = start_current_person_pos;
-		new_date->person_n = start_current_person_pos;
-		fwrite(new_p, sizeof(Date), 1, date_out);
+		new_date->person_n = current_person_pos - start_current_person_pos;
+		fwrite(new_date, sizeof(Date), 1, date_out);
 	}
 
 
@@ -372,9 +371,8 @@ void build_inverted_list(char *folder) {
 	unsigned int ipm_index = 0;
 	ipm = new InterestPersonMapping();
 	CompressedPerson *p;
-	for (int i = 0; i < person_length / sizeof(CompressedPerson); i++) {
+	for (unsigned int i = 0; i < person_length / sizeof(CompressedPerson); i++) {
 	 	p = &person_com_map[i];
-		 
 	 	for (int j = p->interests_first; j < p->interests_first + p->interest_n; j++)
 	 	{
 			unsigned short interest = interest_map[j];
