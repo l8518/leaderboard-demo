@@ -67,66 +67,14 @@ void calculate_bitmap(unsigned short artist, unsigned int from, unsigned int to,
 	}
 }
 
-unsigned int lower_bound(unsigned int *a, unsigned int s, unsigned int e, unsigned int v) {
-
-	int i = s;
-	int j = e;
-	int m;
-	while (i <= j) {
-		m = (i + j) / 2;
-
-		if (v < a[m])
-			j = m - 1;
-		else if (v > a[m])
-			i = m + 1;
-		else
-			return m;
-	}
-	return std::max(s, (unsigned int)m);
-}
-
-unsigned int upper_bound(unsigned int *a, unsigned int s, unsigned int e, unsigned int v) {
-
-	int i = s;
-	int j = e;
-	int m;
-	while (i <= j) {
-		m = (i + j) / 2;
-		if (v < a[m])
-			j = m - 1;
-		else if (v > a[m])
-			i = m + 1;
-		else
-			return m;
-	}
-	return std::min(e, (unsigned int) m + 1);
-}
-
-
 void fetch_postings(unsigned int t, unsigned int t2, std::vector<bool> *bitmap, unsigned int poffset_lower, unsigned int poffset_upper) {
-
 	unsigned int start = t;
 	unsigned int end = t2 - 1;
 
-	unsigned int bs = lower_bound(postings_map, start, end, poffset_lower) + 1;
-	unsigned int be = upper_bound(postings_map, start, end, poffset_upper) - 1;
-
-	unsigned int bsp = postings_map[bs];
-	unsigned int bep = postings_map[be];
-	// Hotfix for broken bin search for bounds; TODO
-	if (postings_map[bs - 1] < poffset_lower) {
-		bs = bs;
-	} else {
-		bs = bs - 1;
-	}
-
-	if (postings_map[be] > poffset_upper) {
-		be = be - 1;
-	} else {
-		be = be;
-	}
-
-	for (unsigned int i = bs; i <= be; i++ ) {
+	unsigned int bslp = std::lower_bound( postings_map + start, postings_map + end, poffset_lower) - (postings_map);
+	unsigned int belp = std::upper_bound( postings_map + start, postings_map + end, poffset_upper) - (postings_map);
+	
+	for (unsigned int i = bslp; i < belp; i++ ) {
 		unsigned int poffset = postings_map[i];
 		// candidates should not like A1
 		if ((*bitmap)[poffset]) continue;
