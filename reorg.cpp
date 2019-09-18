@@ -423,7 +423,6 @@ void build_inverted_list(char *folder) {
 
 	char *tags_path = makepath(folder, (char *)"tags", (char *)"bin");
 	FILE *tags_out = open_binout(tags_path);
-	Tag *new_tag = new Tag();
 	unsigned short tag_offset = 0;
 
 	unsigned int current_posting_offset = 0;
@@ -442,14 +441,11 @@ void build_inverted_list(char *folder) {
 			cipm = &interest_person_map[++ipm_index]; // get next ipm
 		}
 
-		new_tag->posting_first = start_posting_offset;
-		new_tag->posting_n = current_posting_offset - start_posting_offset;
-		fwrite(new_tag, sizeof(Tag), 1, tags_out);
+		fwrite(&start_posting_offset, sizeof(unsigned int), 1, tags_out);
 		tags_written++;
 	}
 	fclose(tags_out);
 	fclose(postings_out);
-	delete new_tag;
 	printf(" \t Finished Writing Tag (%d) and Postings(%u)\n", tags_written, current_posting_offset);
 }
 

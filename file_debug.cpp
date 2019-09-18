@@ -22,7 +22,7 @@
 
 CompressedPerson *person_map;
 unsigned int *knows_map;
-Tag *tags_map;
+unsigned int *tags_map;
 unsigned int *postings_map;
 Date *date_map;
 std::unordered_map<unsigned int, char> map;
@@ -44,7 +44,7 @@ int main(int argc, char *argv[])
 	person_map = (CompressedPerson *)mmapr(makepath((char *)query_path, (char *)"person_bsort", (char *)"bin"), &person_length);
 	knows_map = (unsigned int *)mmapr(makepath((char *)query_path, (char *)"knows_bsort", (char *)"bin"), &knows_length);
 	postings_map = (unsigned int *)mmapr(makepath((char *)query_path, (char *)"postings", (char *)"bin"), &postings_length);
-	tags_map = (Tag *)mmapr(makepath((char *)query_path, (char *)"tags", (char *)"bin"), &tags_length);
+	tags_map = (unsigned int *)mmapr(makepath((char *)query_path, (char *)"tags", (char *)"bin"), &tags_length);
 	date_map = (Date *)mmapr(makepath((char *)query_path, (char *)"date", (char *)"bin"), &date_length);
 
 	outfile = fopen("./debug_person.bin", "w");
@@ -69,9 +69,9 @@ int main(int argc, char *argv[])
 	fclose(outfile);
 
 	outfile = fopen("./debug_tags.bin", "w");
-	for (int i = 0; i < tags_length / sizeof(Tag); i++) {
-		Tag *t = &tags_map[i];
-		fprintf(outfile, "%014i, %014i\n", t->posting_first, t->posting_n);
+	for (int i = 0; i < tags_length / sizeof(unsigned int); i++) {
+		unsigned int *t = &tags_map[i];
+		fprintf(outfile, "%014i\n", t->posting_first);
 	}
 	fclose(outfile);
 

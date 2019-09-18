@@ -28,11 +28,6 @@ typedef struct {
 } CompressedPerson;
 
 typedef struct {
-	unsigned int posting_first;
-	unsigned short posting_n;
-} Tag;
-
-typedef struct {
 	unsigned int person_first;
 	unsigned short person_n;
 } Date;

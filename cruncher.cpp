@@ -30,7 +30,7 @@
 
 CompressedPerson *person_map;
 unsigned int *knows_map;
-Tag *tags_map;
+unsigned int *tags_map;
 unsigned int *postings_map;
 Date *date_map;
 std::unordered_map<unsigned int, char> map;
@@ -60,11 +60,12 @@ int result_comparator(const void *v1, const void *v2)
 }
 
 void calculate_bitmap(unsigned short artist, std::vector<bool> *bitmap) {
-	Tag *t = &tags_map[artist];
+	unsigned int t = tags_map[artist];
 	// TODO: Here is an issue with n (don't know why -> probs reorg)
-	Tag *t2 = &tags_map[artist + 1];
+	// TODO: CALC max of tags
+	unsigned int t2 = tags_map[artist + 1];
 	unsigned int i;
-	for (i = t->posting_first; i < t2->posting_first; i++ ) {
+	for (i = t; i < t2; i++ ) {
 		unsigned int poffset = postings_map[i];
 		(*bitmap)[poffset] = 1;		
 	}
@@ -106,10 +107,10 @@ unsigned int upper_bound(unsigned int *a, unsigned int s, unsigned int e, unsign
 }
 
 
-void fetch_postings(Tag *t, Tag *t2, std::vector<bool> *bitmap, unsigned int poffset_lower, unsigned int poffset_upper) {
+void fetch_postings(unsigned int t, unsigned int t2, std::vector<bool> *bitmap, unsigned int poffset_lower, unsigned int poffset_upper) {
 
-	unsigned int start = t->posting_first;
-	unsigned int end = t2->posting_first - 1;
+	unsigned int start = t;
+	unsigned int end = t2 - 1;
 
 	unsigned int bs = lower_bound(postings_map, start, end, poffset_lower) + 1;
 	unsigned int be = upper_bound(postings_map, start, end, poffset_upper) - 1;
@@ -145,9 +146,9 @@ void fetch_postings(Tag *t, Tag *t2, std::vector<bool> *bitmap, unsigned int pof
 }
 
 void build_person_candidates(unsigned short a2, unsigned short a3, unsigned short a4, std::vector<bool> *bitmap, unsigned int poffset_lower, unsigned int poffset_upper) {
-	fetch_postings(&tags_map[a2], &tags_map[a2+1], bitmap, poffset_lower, poffset_upper);
-	fetch_postings(&tags_map[a3], &tags_map[a3+1], bitmap, poffset_lower, poffset_upper);
-	fetch_postings(&tags_map[a4], &tags_map[a4+1], bitmap, poffset_lower, poffset_upper);
+	fetch_postings(tags_map[a2], tags_map[a2+1], bitmap, poffset_lower, poffset_upper);
+	fetch_postings(tags_map[a3], tags_map[a3+1], bitmap, poffset_lower, poffset_upper);
+	fetch_postings(tags_map[a4], tags_map[a4+1], bitmap, poffset_lower, poffset_upper);
 }
 
 void query(unsigned short qid, unsigned short artist, unsigned short areltd[], unsigned short bdstart, unsigned short bdend)
@@ -227,7 +228,7 @@ int main(int argc, char *argv[])
 	person_map = (CompressedPerson *)mmapr(makepath((char *)query_path, (char *)"person_bsort", (char *)"bin"), &person_length);
 	knows_map = (unsigned int *)mmapr(makepath((char *)query_path, (char *)"knows_bsort", (char *)"bin"), &knows_length);
 	postings_map = (unsigned int *)mmapr(makepath((char *)query_path, (char *)"postings", (char *)"bin"), &postings_length);
-	tags_map = (Tag *)mmapr(makepath((char *)query_path, (char *)"tags", (char *)"bin"), &tags_length);
+	tags_map = (unsigned int *)mmapr(makepath((char *)query_path, (char *)"tags", (char *)"bin"), &tags_length);
 	date_map = (Date *)mmapr(makepath((char *)query_path, (char *)"date", (char *)"bin"), &date_length);
 
 	outfile = fopen(argv[3], "w");
