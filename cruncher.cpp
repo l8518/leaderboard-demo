@@ -44,9 +44,9 @@ int result_comparator(const void *v1, const void *v2)
 {
 	Result *r1 = (Result *)v1;
 	Result *r2 = (Result *)v2;
-	if (r1->qid > r2->qid)
+	if (r1->qid < r2->qid)
 		return -1;
-	else if (r1->qid < r2->qid)
+	else if (r1->qid > r2->qid)
 		return +1;
 	else if (r1->score > r2->score)
 		return -1;
