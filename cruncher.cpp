@@ -36,6 +36,7 @@ Date *date_map;
 char* score_map = NULL;
 
 unsigned long person_length, knows_length, tags_length, postings_length, date_length;
+unsigned int person_elem_count, knows_elem_count, tags_elem_count, postings_elem_count, date_elem_count;
 
 FILE *outfile;
 
@@ -59,13 +60,8 @@ int result_comparator(const void *v1, const void *v2)
 		return 0;
 }
 
-void calculate_bitmap(unsigned short artist, std::vector<bool> *bitmap) {
-	unsigned int t = tags_map[artist];
-	// TODO: Here is an issue with n (don't know why -> probs reorg)
-	// TODO: CALC max of tags
-	unsigned int t2 = tags_map[artist + 1];
-	unsigned int i;
-	for (i = t; i < t2; i++ ) {
+void calculate_bitmap(unsigned short artist, unsigned int from, unsigned int to, std::vector<bool> *bitmap) {
+	for (unsigned int i = from; i < to; i++ ) {
 		unsigned int poffset = postings_map[i];
 		(*bitmap)[poffset] = 1;		
 	}
@@ -132,7 +128,6 @@ void fetch_postings(unsigned int t, unsigned int t2, std::vector<bool> *bitmap, 
 
 	for (unsigned int i = bs; i <= be; i++ ) {
 		unsigned int poffset = postings_map[i];
-
 		// candidates should not like A1
 		if ((*bitmap)[poffset]) continue;
 		score_map[poffset] += 1;
@@ -150,8 +145,9 @@ void query(unsigned short qid, unsigned short artist, unsigned short areltd[], u
 	std::vector<bool> bitmap(person_length / sizeof(PackedPerson));
 	// fast allocation with calloc
 	score_map = (char*) calloc (person_length / sizeof(PackedPerson), sizeof(char));
+	// init bitmap for candidates
+	calculate_bitmap(artist, tags_map[artist], tags_map[std::min( (unsigned int) artist + 1, tags_elem_count)], &bitmap);
 
-	calculate_bitmap(artist, &bitmap);
 	build_person_candidates(areltd[0], areltd[1], areltd[2], &bitmap, date_map[bdstart].person_first,date_map[bdend+1].person_first);
 
 	unsigned int result_length = 0, result_idx, result_set_size = 15000;
@@ -159,20 +155,15 @@ void query(unsigned short qid, unsigned short artist, unsigned short areltd[], u
 	Result* results = (Result*)malloc(result_set_size * sizeof (Result));
 
 	PackedPerson *p, *f;
-	for(unsigned int i = 0; i < person_length/ sizeof(PackedPerson); i++) {
+	for(unsigned int i = 0; i < person_elem_count; i++) {
 		char score = score_map[i];
 		if (score == 0) continue;
+
 		p = &person_map[i];
-		int max_knows;
-		
-		if (i + 1 > person_length / sizeof(PackedPerson)) {
-			max_knows = knows_length / (sizeof(unsigned int));
-		} else {
-			max_knows = person_map[i + 1].knows_first;
-		}
+
+		int max_knows = (i + 1 > person_elem_count ) ?  knows_elem_count : person_map[i + 1].knows_first;
 		
 		for (int koffset = p->knows_first; koffset < max_knows; koffset++) {
-
 			kpoffset = knows_map[koffset];
 			
 			if (!bitmap[kpoffset]) continue;
@@ -187,9 +178,10 @@ void query(unsigned short qid, unsigned short artist, unsigned short areltd[], u
 			results[result_length].knows_id = f->person_id;
 			results[result_length].score = score;
 			result_length++;
-
 		}
 	}
+
+	delete(score_map);
 
 	// sort result
 	qsort(results, result_length, sizeof(Result), &result_comparator);
@@ -199,8 +191,6 @@ void query(unsigned short qid, unsigned short artist, unsigned short areltd[], u
 		fprintf(outfile, "%d|%d|%lu|%lu\n", qid, results[result_idx].score, 
 			results[result_idx].person_id, results[result_idx].knows_id);
 	}
-
-	delete(score_map);
 }
 
 void query_line_handler(unsigned char nfields, char **tokens)
@@ -234,6 +224,12 @@ int main(int argc, char *argv[])
 	postings_map = (unsigned int *)mmapr(makepath((char *)query_path, (char *)"postings", (char *)"bin"), &postings_length);
 	tags_map = (unsigned int *)mmapr(makepath((char *)query_path, (char *)"tags", (char *)"bin"), &tags_length);
 	date_map = (Date *)mmapr(makepath((char *)query_path, (char *)"date", (char *)"bin"), &date_length);
+
+	person_elem_count = person_length / sizeof(PackedPerson);
+	knows_elem_count = knows_length / sizeof(unsigned int);
+	postings_elem_count = postings_length / sizeof(unsigned int);
+	tags_elem_count = tags_length / sizeof(unsigned int);
+	date_elem_count = person_length / sizeof(Date);
 
 	outfile = fopen(argv[3], "w");
 	if (outfile == NULL)
