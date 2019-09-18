@@ -7,7 +7,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <iostream>
-#include <unordered_map>
+#include <map>
 #include <set>
 #include <typeinfo>
 #include <chrono>
@@ -34,6 +34,13 @@ unsigned int *tags_map;
 unsigned int *postings_map;
 Date *date_map;
 char* score_map = NULL;
+
+struct Score
+{
+    char value = 0;
+};
+
+std::map<unsigned int, Score> person_score_map;
 
 unsigned long person_length, knows_length, tags_length, postings_length, date_length;
 unsigned int person_elem_count, knows_elem_count, tags_elem_count, postings_elem_count, date_elem_count;
@@ -82,7 +89,7 @@ void fetch_postings(unsigned int t, unsigned int t2, std::vector<bool> *bitmap, 
 		unsigned int poffset = postings_map[i];
 		// candidates should not like A1
 		if ((*bitmap)[poffset]) continue;
-		score_map[poffset] += 1;
+		person_score_map[poffset].value += 1;
 	}
 }
 
@@ -99,7 +106,8 @@ void query(unsigned short qid, unsigned short artist, unsigned short areltd[], u
 {
 	std::vector<bool> bitmap(person_length / sizeof(PackedPerson));
 	// fast allocation with calloc
-	score_map = (char*) calloc (person_length / sizeof(PackedPerson), sizeof(char));
+	person_score_map.clear();
+	// score_map = (char*) calloc (person_length / sizeof(PackedPerson), sizeof(char));
 	// init bitmap for candidates
 	calculate_bitmap(artist, tags_map[artist], tags_map[std::min( (unsigned int) artist + 1, tags_elem_count)], &bitmap);
 
@@ -108,8 +116,9 @@ void query(unsigned short qid, unsigned short artist, unsigned short areltd[], u
 	unsigned int kpoffset;
 
 	PackedPerson *p, *f;
-	for(unsigned int i = 0; i < person_elem_count; i++) {
-		char score = score_map[i];
+	for(auto it : person_score_map) {
+		int i = it.first;
+		char score = it.second.value;
 		if (score == 0) continue;
 
 		p = &person_map[i];
