@@ -33,7 +33,7 @@ unsigned int *knows_map;
 unsigned int *tags_map;
 unsigned int *postings_map;
 Date *date_map;
-std::unordered_map<unsigned int, char> map;
+char* score_map = NULL;
 
 unsigned long person_length, knows_length, tags_length, postings_length, date_length;
 
@@ -135,13 +135,7 @@ void fetch_postings(unsigned int t, unsigned int t2, std::vector<bool> *bitmap, 
 
 		// candidates should not like A1
 		if ((*bitmap)[poffset]) continue;
-
-		// should like at least one of those (calculate score)
-		if (map.find(poffset) == map.end()) {
-			map[poffset] = 1;
-		} else {
-			map[poffset] = map[poffset] + 1;
-		}
+		score_map[poffset] += 1;
 	}
 }
 
@@ -154,25 +148,27 @@ void build_person_candidates(unsigned short a2, unsigned short a3, unsigned shor
 void query(unsigned short qid, unsigned short artist, unsigned short areltd[], unsigned short bdstart, unsigned short bdend)
 {
 	std::vector<bool> bitmap(person_length / sizeof(PackedPerson));
-	map.clear();
+	// fast allocation with calloc
+	score_map = (char*) calloc (person_length / sizeof(PackedPerson), sizeof(char));
 
 	calculate_bitmap(artist, &bitmap);
 	build_person_candidates(areltd[0], areltd[1], areltd[2], &bitmap, date_map[bdstart].person_first,date_map[bdend+1].person_first);
 
 	unsigned int result_length = 0, result_idx, result_set_size = 15000;
 	unsigned int kpoffset;
-	unsigned int candidate_poffset;
 	Result* results = (Result*)malloc(result_set_size * sizeof (Result));
 
 	PackedPerson *p, *f;
-	for(const auto it : map) {
-		candidate_poffset = it.first;
-		p = &person_map[candidate_poffset];
+	for(unsigned int i = 0; i < person_length/ sizeof(PackedPerson); i++) {
+		char score = score_map[i];
+		if (score == 0) continue;
+		p = &person_map[i];
 		int max_knows;
-		if (candidate_poffset + 1 > person_length / sizeof(PackedPerson)) {
+		
+		if (i + 1 > person_length / sizeof(PackedPerson)) {
 			max_knows = knows_length / (sizeof(unsigned int));
 		} else {
-			max_knows = person_map[candidate_poffset + 1].knows_first;
+			max_knows = person_map[i + 1].knows_first;
 		}
 		
 		for (int koffset = p->knows_first; koffset < max_knows; koffset++) {
@@ -189,7 +185,7 @@ void query(unsigned short qid, unsigned short artist, unsigned short areltd[], u
 			}
 			results[result_length].person_id = p->person_id;
 			results[result_length].knows_id = f->person_id;
-			results[result_length].score = it.second;;
+			results[result_length].score = score;
 			result_length++;
 
 		}
@@ -203,6 +199,8 @@ void query(unsigned short qid, unsigned short artist, unsigned short areltd[], u
 		fprintf(outfile, "%d|%d|%lu|%lu\n", qid, results[result_idx].score, 
 			results[result_idx].person_id, results[result_idx].knows_id);
 	}
+
+	delete(score_map);
 }
 
 void query_line_handler(unsigned char nfields, char **tokens)
