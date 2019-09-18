@@ -50,47 +50,37 @@ int main(int argc, char *argv[])
 	outfile = fopen("./debug_person.bin", "w");
 	for (int i = 0; i < person_length / sizeof(CompressedPerson); i++) {
 		CompressedPerson *p = &person_map[i];
-		fprintf(outfile, "%0*hu|%012lu\n", 4, p->birthday, p->person_id);
+		fprintf(outfile, "%0*hu|%014lu\n", 4, p->birthday, p->person_id);
 	}
 	fclose(outfile);
 
 	outfile = fopen("./debug_knows.bin", "w");
 	for (int i = 0; i < knows_length / sizeof(unsigned int); i++) {
 		unsigned int knows_offset = knows_map[i];
-		fprintf(outfile, "%012i\n", knows_offset);
+		fprintf(outfile, "%014i\n", knows_offset);
 	}
 	fclose(outfile);
 
 	outfile = fopen("./debug_postings.bin", "w");
 	for (int i = 0; i < postings_length / sizeof(unsigned int); i++) {
 		unsigned int postings_offset = postings_map[i];
-		fprintf(outfile, "%012i\n", postings_offset);
+		fprintf(outfile, "%014i\n", postings_offset);
 	}
 	fclose(outfile);
 
 	outfile = fopen("./debug_tags.bin", "w");
 	for (int i = 0; i < tags_length / sizeof(Tag); i++) {
 		Tag *t = &tags_map[i];
-		fprintf(outfile, "%012i, %012i\n", t->posting_first, t->posting_n);
+		fprintf(outfile, "%014i, %014i\n", t->posting_first, t->posting_n);
 	}
 	fclose(outfile);
 
 	outfile = fopen("./debug_date.bin", "w");
 	for (int i = 0; i < date_length / sizeof(Date); i++) {
 		Date *d = &date_map[i];
-		fprintf(outfile, "%012i, %012i\n", d->person_first, d->person_n);
+		fprintf(outfile, "%014i, %014i\n", d->person_first, d->person_n);
 	}
 	fclose(outfile);
 
 	return 0;
 }
-
-// typedef struct {
-// 	unsigned long  person_id;
-// 	unsigned long  knows_first;
-// 	unsigned long  interests_first;
-// 	unsigned short knows_n;
-// 	unsigned short interest_n;
-// 	unsigned short birthday;
-// 	unsigned short location;
-// } CompressedPerson;

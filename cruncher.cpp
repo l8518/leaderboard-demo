@@ -111,11 +111,25 @@ void fetch_postings(Tag *t, Tag *t2, std::vector<bool> *bitmap, unsigned int pof
 	unsigned int start = t->posting_first;
 	unsigned int end = t2->posting_first - 1;
 
-	unsigned int bs = lower_bound(postings_map, start, end, poffset_lower);
-	unsigned int be = upper_bound(postings_map, start, end, poffset_upper);
+	unsigned int bs = lower_bound(postings_map, start, end, poffset_lower) + 1;
+	unsigned int be = upper_bound(postings_map, start, end, poffset_upper) - 1;
 
-	// TODO: Here is an issue with n (don't know why -> probs reorg)
-	for (unsigned int i = bs; i < be; i++ ) {
+	unsigned int bsp = postings_map[bs];
+	unsigned int bep = postings_map[be];
+	// Hotfix for broken bin search for bounds; TODO
+	if (postings_map[bs - 1] < poffset_lower) {
+		bs = bs;
+	} else {
+		bs = bs - 1;
+	}
+
+	if (postings_map[be] > poffset_upper) {
+		be = be - 1;
+	} else {
+		be = be;
+	}
+
+	for (unsigned int i = bs; i <= be; i++ ) {
 		unsigned int poffset = postings_map[i];
 
 		// candidates should not like A1
@@ -131,26 +145,18 @@ void fetch_postings(Tag *t, Tag *t2, std::vector<bool> *bitmap, unsigned int pof
 }
 
 void build_person_candidates(unsigned short a2, unsigned short a3, unsigned short a4, std::vector<bool> *bitmap, unsigned int poffset_lower, unsigned int poffset_upper) {
-	std::cout << "Interst\t" << a2 << std::endl;
 	fetch_postings(&tags_map[a2], &tags_map[a2+1], bitmap, poffset_lower, poffset_upper);
-	std::cout << "Interst\t" << a3 << std::endl;
 	fetch_postings(&tags_map[a3], &tags_map[a3+1], bitmap, poffset_lower, poffset_upper);
-	std::cout << "Interst\t" << a4 << std::endl;
 	fetch_postings(&tags_map[a4], &tags_map[a4+1], bitmap, poffset_lower, poffset_upper);
 }
 
 void query(unsigned short qid, unsigned short artist, unsigned short areltd[], unsigned short bdstart, unsigned short bdend)
 {
 	std::vector<bool> bitmap(person_length / sizeof(CompressedPerson));
-	Date *start_date, *end_date;
-	start_date = &date_map[bdstart];
-	end_date = &date_map[bdend+1];
-
-	std::cout << bdstart << "  --  " << bdend << std::endl;
 	map.clear();
 
 	calculate_bitmap(artist, &bitmap);
-	build_person_candidates(areltd[0], areltd[1], areltd[2], &bitmap, start_date->person_first, end_date->person_first);
+	build_person_candidates(areltd[0], areltd[1], areltd[2], &bitmap, date_map[bdstart].person_first,date_map[bdend+1].person_first);
 
 	unsigned int result_length = 0, result_idx, result_set_size = 15000;
 	unsigned int kpoffset;
@@ -162,9 +168,6 @@ void query(unsigned short qid, unsigned short artist, unsigned short areltd[], u
 		candidate_poffset = it.first;
 		p = &person_map[candidate_poffset];
 		
-		 if (p->birthday < bdstart || p->birthday > bdend)
-		 	continue;
-
 		for (int koffset = p->knows_first; koffset < p->knows_first + p->knows_n; koffset++) {
 
 			kpoffset = knows_map[koffset];
