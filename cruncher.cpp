@@ -28,7 +28,7 @@
 #define QUERY_FIELD_BS 5
 #define QUERY_FIELD_BE 6
 
-CompressedPerson *person_map;
+PackedPerson *person_map;
 unsigned int *knows_map;
 unsigned int *tags_map;
 unsigned int *postings_map;
@@ -153,7 +153,7 @@ void build_person_candidates(unsigned short a2, unsigned short a3, unsigned shor
 
 void query(unsigned short qid, unsigned short artist, unsigned short areltd[], unsigned short bdstart, unsigned short bdend)
 {
-	std::vector<bool> bitmap(person_length / sizeof(CompressedPerson));
+	std::vector<bool> bitmap(person_length / sizeof(PackedPerson));
 	map.clear();
 
 	calculate_bitmap(artist, &bitmap);
@@ -164,12 +164,18 @@ void query(unsigned short qid, unsigned short artist, unsigned short areltd[], u
 	unsigned int candidate_poffset;
 	Result* results = (Result*)malloc(result_set_size * sizeof (Result));
 
-	CompressedPerson *p, *f;
+	PackedPerson *p, *f;
 	for(const auto it : map) {
 		candidate_poffset = it.first;
 		p = &person_map[candidate_poffset];
+		int max_knows;
+		if (candidate_poffset + 1 > person_length / sizeof(PackedPerson)) {
+			max_knows = knows_length / (sizeof(unsigned int));
+		} else {
+			max_knows = person_map[candidate_poffset + 1].knows_first;
+		}
 		
-		for (int koffset = p->knows_first; koffset < p->knows_first + p->knows_n; koffset++) {
+		for (int koffset = p->knows_first; koffset < max_knows; koffset++) {
 
 			kpoffset = knows_map[koffset];
 			
@@ -225,7 +231,7 @@ int main(int argc, char *argv[])
 	const char *query_path = (argv[1]);
 
 	/* memory-map files created by loader */
-	person_map = (CompressedPerson *)mmapr(makepath((char *)query_path, (char *)"person_bsort", (char *)"bin"), &person_length);
+	person_map = (PackedPerson *)mmapr(makepath((char *)query_path, (char *)"packed_person", (char *)"bin"), &person_length);
 	knows_map = (unsigned int *)mmapr(makepath((char *)query_path, (char *)"knows_bsort", (char *)"bin"), &knows_length);
 	postings_map = (unsigned int *)mmapr(makepath((char *)query_path, (char *)"postings", (char *)"bin"), &postings_length);
 	tags_map = (unsigned int *)mmapr(makepath((char *)query_path, (char *)"tags", (char *)"bin"), &tags_length);

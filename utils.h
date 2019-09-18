@@ -28,6 +28,11 @@ typedef struct {
 } CompressedPerson;
 
 typedef struct {
+	unsigned long  person_id;
+	unsigned long  knows_first;
+} PackedPerson;
+
+typedef struct {
 	unsigned int person_first;
 	unsigned short person_n;
 } Date;

@@ -449,6 +449,20 @@ void build_inverted_list(char *folder) {
 	printf(" \t Finished Writing Tag (%d) and Postings(%u)\n", tags_written, current_posting_offset);
 }
 
+void pack_person(char *folder) {
+	char *pperson_path = makepath(folder, (char *)"packed_person", (char *)"bin");
+	FILE *pperson_out = open_binout(pperson_path);
+	CompressedPerson *p;
+	PackedPerson *pp = new PackedPerson();
+	for (int i = 0; i < person_length / sizeof(CompressedPerson); i++) {
+		p = &person_com_map[i];
+		pp->person_id = p->person_id;
+		pp->knows_first = p->knows_first;
+		fwrite(pp, sizeof(PackedPerson), 1, pperson_out);
+	}
+	fclose(pperson_out);
+}
+
 int main(int argc, char *argv[])
 {
 
@@ -467,6 +481,9 @@ int main(int argc, char *argv[])
 
 	// build interest inverted lists:	
 	build_inverted_list(folder);
+
+	// write packed person
+	pack_person(folder);
 
 	printf("Finished reorg \n");
 	printf("Lines in latest person.bin: \t %u \n", person_length / sizeof(CompressedPerson) );
