@@ -44,7 +44,11 @@ int result_comparator(const void *v1, const void *v2)
 {
 	Result *r1 = (Result *)v1;
 	Result *r2 = (Result *)v2;
-	if (r1->score > r2->score)
+	if (r1->qid > r2->qid)
+		return -1;
+	else if (r1->qid < r2->qid)
+		return +1;
+	else if (r1->score > r2->score)
 		return -1;
 	else if (r1->score < r2->score)
 		return +1;
@@ -88,6 +92,9 @@ void build_person_candidates(unsigned short a2, unsigned short a3, unsigned shor
 	fetch_postings(tags_map[a4], tags_map[a4+1], bitmap, poffset_lower, poffset_upper);
 }
 
+unsigned int result_length = 0, result_idx, result_set_size = 15000;
+Result* results = (Result*)malloc(result_set_size * sizeof (Result));
+
 void query(unsigned short qid, unsigned short artist, unsigned short areltd[], unsigned short bdstart, unsigned short bdend)
 {
 	std::vector<bool> bitmap(person_length / sizeof(PackedPerson));
@@ -98,9 +105,7 @@ void query(unsigned short qid, unsigned short artist, unsigned short areltd[], u
 
 	build_person_candidates(areltd[0], areltd[1], areltd[2], &bitmap, date_map[bdstart].person_first,date_map[bdend+1].person_first);
 
-	unsigned int result_length = 0, result_idx, result_set_size = 15000;
 	unsigned int kpoffset;
-	Result* results = (Result*)malloc(result_set_size * sizeof (Result));
 
 	PackedPerson *p, *f;
 	for(unsigned int i = 0; i < person_elem_count; i++) {
@@ -130,15 +135,6 @@ void query(unsigned short qid, unsigned short artist, unsigned short areltd[], u
 	}
 
 	delete(score_map);
-
-	// sort result
-	qsort(results, result_length, sizeof(Result), &result_comparator);
-
-	// output
-	for (result_idx = 0; result_idx < result_length; result_idx++) {
-		fprintf(outfile, "%d|%d|%lu|%lu\n", qid, results[result_idx].score, 
-			results[result_idx].person_id, results[result_idx].knows_id);
-	}
 }
 
 void query_line_handler(unsigned char nfields, char **tokens)
@@ -188,6 +184,15 @@ int main(int argc, char *argv[])
 
 	/* run through queries */
 	parse_csv(argv[2], &query_line_handler);
+
+	// sort result
+	qsort(results, result_length, sizeof(Result), &result_comparator);
+
+	// output
+	for (result_idx = 0; result_idx < result_length; result_idx++) {
+		Result rs = results[result_idx];
+		fprintf(outfile, "%d|%d|%lu|%lu\n", rs.qid, rs.score, rs.person_id, rs.knows_id);
+	}
 
 	return 0;
 }

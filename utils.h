@@ -40,6 +40,7 @@ typedef struct {
 typedef struct { 
     unsigned long  person_id;
     unsigned long  knows_id;
+	unsigned short  qid;
     unsigned char  score;
 } Result;
 

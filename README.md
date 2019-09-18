@@ -15,3 +15,8 @@
    - Use the profiling version of cruncher: `./cruncher-profile dataset-sf100 queries-test.csv out.csv`
 3. Execute `gprof cruncher-profile gmon.out > analysis.txt`
 4. Anaylze 🤓
+
+# Use Valgrind
+valgrind --leak-check=full ./cruncher  dataset-sf100 queries-test.csv out.csv
+valgrind --tool=callgrind --dump-instr=yes --simulate-cache=yes --collect-jumps=yes  ./cruncher  dataset-sf100 queries-test.csv out.csv
+
