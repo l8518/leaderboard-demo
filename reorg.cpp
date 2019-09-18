@@ -486,16 +486,16 @@ int main(int argc, char *argv[])
 	pack_person(folder);
 
 	printf("Finished reorg \n");
-	printf("Lines in latest person.bin: \t %u \n", person_length / sizeof(CompressedPerson) );
-	printf("Lines in latest knows.bin: \t %u \n", knows_length / sizeof(unsigned int) );
-	printf("Lines in latest interest.bin: \t %u \n", interest_length / sizeof(unsigned short) );
+	printf("Lines in latest person.bin: \t %lu \n", person_length / sizeof(CompressedPerson) );
+	printf("Lines in latest knows.bin: \t %lu \n", knows_length / sizeof(unsigned int) );
+	printf("Lines in latest interest.bin: \t %lu \n", interest_length / sizeof(unsigned short) );
 
 	// take time:
 	auto t2 = std::chrono::high_resolution_clock::now();
 	auto duration = std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1).count();
 
-	printf("Execution took microseconds: %d \n", duration);
-	printf("Execution took seconds: %d \n", duration / 1000000);
-	printf("Execution took minutes : %d \n", duration / 1000000 / 60);
+	printf("Execution took microseconds: %lu \n", duration);
+	printf("Execution took seconds: %lu \n", duration / 1000000);
+	printf("Execution took minutes : %lu \n", duration / 1000000 / 60);
 	return 0;
 }
