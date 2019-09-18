@@ -127,6 +127,7 @@ void query(unsigned short qid, unsigned short artist, unsigned short areltd[], u
 				result_set_size *= 1.5;
 				results = (Result *)realloc(results, result_set_size * sizeof (Result));
 			}
+			results[result_length].qid = qid;
 			results[result_length].person_id = p->person_id;
 			results[result_length].knows_id = f->person_id;
 			results[result_length].score = score;
