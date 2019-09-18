@@ -1,35 +1,74 @@
+#include <algorithm>
 #include <stdio.h>
 #include <stdlib.h>
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
-
-#include "utils.h"
-#include <chrono>
-#include <map>
-#include <algorithm>    // std::max
-#include <string>
-#include <iostream>
-#include <fstream>
-#include <sstream>
 #include <limits>
 #include <math.h>
 
+#include "utils.h"
 
-
-// Variables:
+// PGM Variables:
 unsigned long person_length, knows_length, interest_length;
 CompressedPerson *person_com_map;
 unsigned int *knows_map;
 unsigned short *interest_map;
 
-bool DEBUG = false;
-
+// Internally needed structs.
 struct InterestPersonMapping {
 	unsigned int poffset = 0;
 	unsigned short interest = 0;
 } ;
 
+struct PersonBirthdayMapping {
+	unsigned long  person_id;
+	unsigned long  knows_first;
+	unsigned long  interests_first;
+	unsigned short knows_n;
+	unsigned short interest_n;
+	unsigned short birthday;
+	unsigned int old_offset;
+} ;
+
+// Comparator for the InterestPersonMapping
+int ipm_comparator(const void *v1, const void *v2)
+{
+	InterestPersonMapping *r1 = (InterestPersonMapping *)v1;
+	InterestPersonMapping *r2 = (InterestPersonMapping *)v2;
+	if (r1->interest > r2->interest)
+		return +1;
+	else if (r1->interest < r2->interest)
+		return -1;
+	else if (r1->poffset > r2->poffset)
+		return +1;
+	else if (r1->poffset < r2->poffset)
+		return -1;
+	else
+		return 0;
+}
+
+// Comparator for the PersonBirthdayMapping
+int pbm_comparator(const void *v1, const void *v2)
+{
+	PersonBirthdayMapping *r1 = (PersonBirthdayMapping *)v1;
+	PersonBirthdayMapping *r2 = (PersonBirthdayMapping *)v2;
+	if (r1->birthday > r2->birthday)
+		return +1;
+	else if (r1->birthday < r2->birthday)
+		return -1;
+	else if (r1->old_offset > r2->old_offset)
+		return +1;
+	else if (r1->old_offset < r2->old_offset)
+		return -1;
+	else
+		return 0;
+}
+
+/**
+ * Filter each person's friendships
+ * for the same location.
+ * */
 void filter_person_location(char *folder)
 {
 	// Map relevant files:
@@ -54,6 +93,7 @@ void filter_person_location(char *folder)
 	Person *p, *k;
 	CompressedPerson *new_p = new CompressedPerson();
 
+	// Iterate over every person, and filter their friendships.
 	for (i = 0; i < max_i; i++)
 	{
 		p = &person_map[i];
@@ -97,6 +137,11 @@ void filter_person_location(char *folder)
 	knows_map = (unsigned int *)mmapr(knows_location_output_file, &knows_length);
 }
 
+/**
+ * This function filters each person's friendships
+ * and strips all interests of people that have
+ * been removed during the filter process (having no friends left)
+ * */
 void filter_mutual_friends_and_reduce_interests(char *folder) {
 
 	// Map files
@@ -120,20 +165,23 @@ void filter_mutual_friends_and_reduce_interests(char *folder) {
 	CompressedPerson *p, *k;
 	CompressedPerson *new_p = new CompressedPerson();
 
-
 	offset_map = new unsigned int[person_length / sizeof(CompressedPerson)];
 
 	// Calculate the mapping of current person.bin offsets and the new offsets if person removed;
 	for (i = 0; i < person_length / sizeof(CompressedPerson); i++)
 		offset_map[i] = (0 == (&person_com_map[i])->knows_n) ? new_i : new_i++;;
 
+	// Write the person.bin new for mutual only friendships.
 	for (i = 0; i < person_length / sizeof(CompressedPerson); i++)
 	{
 		p = &person_com_map[i];
+
+		// Don't write person, if it doesn't have any friends.
 		if (p->knows_n == 0) continue;
 
 		unsigned long start_new_knows_pos = new_knows_pos;
 		unsigned long start_new_interest_pos = new_interest_pos;
+
 		// iterate over all friendships
 		for (j = p->knows_first; j < p->knows_first + p->knows_n; j++)
 		{
@@ -149,7 +197,7 @@ void filter_mutual_friends_and_reduce_interests(char *folder) {
 				is_mutual = true;
 				break;
 			}
-
+			// Write friendship, if mutual
 			if (is_mutual == true) {
 				unsigned int newOff= offset_map[offset];
 				fwrite(&newOff, sizeof(unsigned int), 1, knows_out);
@@ -157,7 +205,8 @@ void filter_mutual_friends_and_reduce_interests(char *folder) {
 			}
 		}
 
-		// rewrite the whole interests (as we will have superfluous ones)
+		// Rewrite the whole interests 
+		// (as we will have superfluous ones from removed entries in person.bin)
 		for (j = p->interests_first; j < p->interests_first + p->interest_n; j++)
 		{
 			unsigned short interest = interest_map[j];
@@ -195,57 +244,19 @@ void filter_mutual_friends_and_reduce_interests(char *folder) {
 	interest_map = (unsigned short *)mmapr(interest_location_friends_mutual_output_file, &interest_length);
 }
 
-int ipm_comparator(const void *v1, const void *v2)
-{
-	InterestPersonMapping *r1 = (InterestPersonMapping *)v1;
-	InterestPersonMapping *r2 = (InterestPersonMapping *)v2;
-	if (r1->interest > r2->interest)
-		return +1;
-	else if (r1->interest < r2->interest)
-		return -1;
-	else if (r1->poffset > r2->poffset)
-		return +1;
-	else if (r1->poffset < r2->poffset)
-		return -1;
-	else
-		return 0;
-}
-
-struct PersonBirthdayMapping {
-	unsigned long  person_id;
-	unsigned long  knows_first;
-	unsigned long  interests_first;
-	unsigned short knows_n;
-	unsigned short interest_n;
-	unsigned short birthday;
-	unsigned int old_offset;
-} ;
-
-int pbm_comparator(const void *v1, const void *v2)
-{
-	PersonBirthdayMapping *r1 = (PersonBirthdayMapping *)v1;
-	PersonBirthdayMapping *r2 = (PersonBirthdayMapping *)v2;
-	if (r1->birthday > r2->birthday)
-		return +1;
-	else if (r1->birthday < r2->birthday)
-		return -1;
-	else if (r1->old_offset > r2->old_offset)
-		return +1;
-	else if (r1->old_offset < r2->old_offset)
-		return -1;
-	else
-		return 0;
-}
-
+/**
+ * This function sorts the Person.bin for the birthday column.
+ * */
 void sort_person(char *folder) {
 	printf("Enter sort_person\n");
+	
 	// Sort Person After Birthday And Update Knows.bin
 	PersonBirthdayMapping* person_birthday_mapping = NULL;
 	person_birthday_mapping = new PersonBirthdayMapping[person_length / sizeof(CompressedPerson)];
 	unsigned short bday_max = std::numeric_limits<unsigned short>::min();;
 	unsigned short bday_min = std::numeric_limits<unsigned short>::max();;
 
-	// Current Order - whatever it is!
+	// Read every person into a memory, with the new offset.
 	for (unsigned int i = 0; i < person_length / sizeof(CompressedPerson); i++) {
 	 	CompressedPerson *p = &person_com_map[i];
 		person_birthday_mapping[i].person_id = p->person_id;
@@ -260,15 +271,17 @@ void sort_person(char *folder) {
 		bday_min = std::min(bday_min, (unsigned short)p->birthday);
 	}
 
+	// Sort this new person structure.
 	qsort(person_birthday_mapping, person_length / sizeof(CompressedPerson), sizeof(PersonBirthdayMapping), &pbm_comparator);
 
+	// Build the offset map, mapping each old offset to the new one.
 	unsigned int* offset_map = NULL;
 	offset_map = new unsigned int[person_length / sizeof(CompressedPerson)];
 	for (unsigned int i = 0; i < person_length / sizeof(CompressedPerson); i++) {
 		offset_map[person_birthday_mapping[i].old_offset] = i;
 	}
 
-	// Define Output files
+	// Define Output files for the now birthday sorted files.
 	char *person_file = makepath(folder, (char *)"person_bsort", (char *)"bin");
 	char *knows_file = makepath(folder, (char *)"knows_bsort", (char *)"bin");
 	char *date_file = makepath(folder, (char *)"date", (char *)"bin");
@@ -280,6 +293,10 @@ void sort_person(char *folder) {
 	unsigned int start_current_person_pos = 0;
 	unsigned int new_knows_pos = 0;
 
+	/**
+	 * Create the new person.bin and knows.bin that are sorted by 
+	 * birthday. Addtionally, create a index on the birthday.
+	 * */
 	PersonBirthdayMapping *p;
 	CompressedPerson *new_p = new CompressedPerson();
 	Date *new_date = new Date();
@@ -290,12 +307,11 @@ void sort_person(char *folder) {
 		{
 			p = &person_birthday_mapping[i];
 
-			// skip person writing, if this is not equal.
+			// Skip this loop, when we haven't reached the person's birthday
 			if (p->birthday != current_bday) break;
 
-			// iterate over all friendships
+			// Iterate over each friendship, and write it with new offset.
 			unsigned long start_new_knows_pos = new_knows_pos;
-
 			for (unsigned int j = p->knows_first; j < p->knows_first + p->knows_n; j++)
 			{
 				unsigned int offset = offset_map[knows_map[j]];
@@ -303,30 +319,29 @@ void sort_person(char *folder) {
 				new_knows_pos++;
 			}
 
-			// Write Binary Version:
+			// Write the new person and the new offset.
 			new_p->person_id = p->person_id;
 			new_p->birthday = p->birthday;
 			new_p->knows_first = start_new_knows_pos;
 			new_p->knows_n = (new_knows_pos - start_new_knows_pos);
 			new_p->interests_first = p->interests_first;
 			new_p->interest_n = p->interest_n;
-
-			// write binary person record to file
 			fwrite(new_p, sizeof(CompressedPerson), 1, person_out);
 			current_person_pos++;
 		}
 
+		// Write date.bin index.
 		new_date->person_first = start_current_person_pos;
 		new_date->person_n = current_person_pos - start_current_person_pos;
 		fwrite(new_date, sizeof(Date), 1, date_out);
 	}
-
 
 	// free memory:
 	delete new_p;
 	delete offset_map;
 	delete person_birthday_mapping;
 
+	// Close files
 	fclose(person_out);
 	fclose(knows_out);
 
@@ -334,20 +349,26 @@ void sort_person(char *folder) {
 	munmap(knows_map, knows_length);
 	person_com_map = (CompressedPerson *)mmapr(person_file, &person_length);
 	knows_map = (unsigned int *)mmapr(knows_file, &knows_length);
-
 	printf("Exit sort_person\n");
 }
 
+/**
+ * Build inverted lists with the following steps:
+ * - Determine the range of interests (highest and lowest value)
+ *   to determine a how many interests need to be written into
+ *   each bucket.
+ * - Then split for every person their interests into these buckets
+ *   with their own offset. Write each bucket to disk.
+ * - Afterwards, sort each bucket with quicksort
+ * - Merge each sorted bucket.
+ * 
+ * */
 void build_inverted_list(char *folder) {
 	printf("Enter build_inverted_list\n");
-	// unsigned int i, j;
-	// unsigned int max_i =  person_length / sizeof(CompressedPerson);
-	// 
 
 	InterestPersonMapping *ipm;
 
-
-	// Splitup files:
+	// Determine the MAX and MIN value of the interests.
 	unsigned short max = std::numeric_limits<unsigned short>::min();;
 	unsigned short min = std::numeric_limits<unsigned short>::max();;
 
@@ -357,8 +378,7 @@ void build_inverted_list(char *folder) {
 		min = std::min(min, (unsigned short)interest);
 	}
 
-	// Split into speparate buckets
-	
+	// Create the according buckets.
 	const int max_files = 10;
 	const int interest_range = ceil(max / max_files) + 1;
 	FILE *interest_buckets[10];
@@ -368,6 +388,7 @@ void build_inverted_list(char *folder) {
 		interest_buckets[i] = fopen(file_name, "wb");
 	}
 
+	// Write each bucket by going over every person and their interest.
 	unsigned int ipm_index = 0;
 	ipm = new InterestPersonMapping();
 	CompressedPerson *p;
@@ -383,13 +404,13 @@ void build_inverted_list(char *folder) {
 	 	}
 	}
 	delete ipm;
-	// delete p;
 
+	// Close each file, so we can mmap it later.
 	for (int i = 0; i < max_files; i++) {
 		fclose(interest_buckets[i]);
 	}
 
-	
+	// MMAP files and sort them via quicksort + merge into new file.
 	unsigned long ipm_length;
 	char *interest_person_mapping = makepath(folder, (char *)"interest_person_mapping", (char *)"bin");
 	FILE *ipm_out = open_binout(interest_person_mapping);
@@ -407,15 +428,14 @@ void build_inverted_list(char *folder) {
 	}
 	fclose(ipm_out);
 
+	// Delete the previously created buckets.
 	for (int i = 0; i < max_files; i++) {
 		std::string filepart = "interest_split_" + std::to_string(i);
 		char *file_name = makepath(folder, (char *)filepart.c_str(), (char *)"bin");
 		remove(file_name);
 	}
 
-	/**
-	 * Write Tags and Postings, based on the PersonInterestMapping
-	 * */
+	// Write the tag.bin and posting.bin
 	printf(" \t Writing Tag and Postings\n");
 	unsigned long interest_person_mapping_length;
 	InterestPersonMapping *interest_person_map;
@@ -449,6 +469,10 @@ void build_inverted_list(char *folder) {
 	printf(" \t Finished Writing Tag (%d) and Postings(%u)\n", tags_written, current_posting_offset);
 }
 
+/**
+ * Compress the person.bin into a smaller more packed version (also get rid of 
+ * not required attributes)
+ * */
 void pack_person(char *folder) {
 	char *pperson_path = makepath(folder, (char *)"packed_person", (char *)"bin");
 	FILE *pperson_out = open_binout(pperson_path);
@@ -463,39 +487,31 @@ void pack_person(char *folder) {
 	fclose(pperson_out);
 }
 
+/**
+ * This reorg program reduces the amount of entries for person.bin and knows.bin and
+ * prepares different data structures to allow easier access.
+ * */
 int main(int argc, char *argv[])
 {
-
-	fprintf(stdout, "Starting reorg\n");
-	auto t1 = std::chrono::high_resolution_clock::now();
-
 	char *folder = argv[1];
 
-	// STEP 01: Filter for locality
+	// Filter for same location
 	filter_person_location(folder);
 
-	// STEP 03: Filter for mutual friends only and reduce intersts.bin:
+	// Filter for mutual friendships, reduce interests bin
 	filter_mutual_friends_and_reduce_interests(folder);
 
+	// Sort Peron.bin by birthday
 	sort_person(folder);
 
-	// build interest inverted lists:	
+	// Build the inverted list for interests.
 	build_inverted_list(folder);
 
-	// write packed person
+	// Write a more compact version of the person.bin
 	pack_person(folder);
 
-	printf("Finished reorg \n");
 	printf("Lines in latest person.bin: \t %lu \n", person_length / sizeof(CompressedPerson) );
 	printf("Lines in latest knows.bin: \t %lu \n", knows_length / sizeof(unsigned int) );
 	printf("Lines in latest interest.bin: \t %lu \n", interest_length / sizeof(unsigned short) );
-
-	// take time:
-	auto t2 = std::chrono::high_resolution_clock::now();
-	auto duration = std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1).count();
-
-	printf("Execution took microseconds: %lu \n", duration);
-	printf("Execution took seconds: %lu \n", duration / 1000000);
-	printf("Execution took minutes : %lu \n", duration / 1000000 / 60);
 	return 0;
 }
