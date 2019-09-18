@@ -6,13 +6,8 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
-#include <iostream>
 #include <map>
-#include <set>
-#include <typeinfo>
-#include <chrono>
 #include <bitset>
-#include <iostream>
 #include <vector>
 #include <dirent.h>
 #include <bits/stdc++.h> 
@@ -28,22 +23,27 @@
 #define QUERY_FIELD_BS 5
 #define QUERY_FIELD_BE 6
 
-PackedPerson *person_map;
-unsigned int *knows_map;
-unsigned int *tags_map;
-unsigned int *postings_map;
-Date *date_map;
-char* score_map = NULL;
-
+/**
+ * Internal struct
+ * */
 struct Score
 {
     char value = 0;
 };
 
-std::map<unsigned int, Score> person_score_map;
-
+// PGM Vars
 unsigned long person_length, knows_length, tags_length, postings_length, date_length;
 unsigned int person_elem_count, knows_elem_count, tags_elem_count, postings_elem_count, date_elem_count;
+// MMAPs
+PackedPerson *person_map;
+unsigned int *knows_map;
+unsigned int *tags_map;
+unsigned int *postings_map;
+Date *date_map;
+
+char* score_map = NULL;
+
+std::map<unsigned int, Score> person_score_map;
 
 FILE *outfile;
 
@@ -67,6 +67,9 @@ int result_comparator(const void *v1, const void *v2)
 		return 0;
 }
 
+/**
+ * Calculate a bitmap, that only contains 1s for each candidate.
+ * */
 void calculate_bitmap(unsigned short artist, unsigned int from, unsigned int to, std::vector<bool> *bitmap) {
 	for (unsigned int i = from; i < to; i++ ) {
 		unsigned int poffset = postings_map[i];
@@ -74,6 +77,11 @@ void calculate_bitmap(unsigned short artist, unsigned int from, unsigned int to,
 	}
 }
 
+/**
+ * Fetch the potential candidates by considering
+ * also the lower and upper bound determined by the
+ * passed birtday (poffset_lower + poffset_upper)
+ * */
 void fetch_postings(unsigned int t, unsigned int t2, std::vector<bool> *bitmap, unsigned int poffset_lower, unsigned int poffset_upper) {
 	unsigned int start = t;
 	unsigned int end = t2 - 1;
@@ -89,18 +97,23 @@ void fetch_postings(unsigned int t, unsigned int t2, std::vector<bool> *bitmap, 
 	}
 }
 
+/**
+ * Fetch potential interest ranges based on the postings.bin
+ * */
 void build_person_candidates(unsigned short a2, unsigned short a3, unsigned short a4, std::vector<bool> *bitmap, unsigned int poffset_lower, unsigned int poffset_upper) {
 	fetch_postings(tags_map[a2], tags_map[a2+1], bitmap, poffset_lower, poffset_upper);
 	fetch_postings(tags_map[a3], tags_map[a3+1], bitmap, poffset_lower, poffset_upper);
 	fetch_postings(tags_map[a4], tags_map[a4+1], bitmap, poffset_lower, poffset_upper);
 }
 
+/**
+ * This part handles the queries.
+ * */
 void query(unsigned short qid, unsigned short artist, unsigned short areltd[], unsigned short bdstart, unsigned short bdend)
 {
 	std::vector<bool> bitmap(person_length / sizeof(PackedPerson));
-	// fast allocation with calloc
 	person_score_map.clear();
-	// score_map = (char*) calloc (person_length / sizeof(PackedPerson), sizeof(char));
+
 	// init bitmap for candidates
 	calculate_bitmap(artist, tags_map[artist], tags_map[std::min( (unsigned int) artist + 1, tags_elem_count)], &bitmap);
 
@@ -112,6 +125,7 @@ void query(unsigned short qid, unsigned short artist, unsigned short areltd[], u
 	unsigned int kpoffset;
 
 	PackedPerson *p, *f;
+	// Evaluate candidates:
 	for(auto it : person_score_map) {
 		int i = it.first;
 		char score = it.second.value;
@@ -119,11 +133,13 @@ void query(unsigned short qid, unsigned short artist, unsigned short areltd[], u
 
 		p = &person_map[i];
 
+		// Calculate the maximum for frienships (knows.bin) to iterate over
 		int max_knows = (i + 1 > person_elem_count ) ?  knows_elem_count : person_map[i + 1].knows_first;
 		
 		for (int koffset = p->knows_first; koffset < max_knows; koffset++) {
 			kpoffset = knows_map[koffset];
-			
+
+			// Check if given friend does not like the interest.
 			if (!bitmap[kpoffset]) continue;
 			f = &person_map[kpoffset];
 
@@ -140,16 +156,15 @@ void query(unsigned short qid, unsigned short artist, unsigned short areltd[], u
 		}
 	}
 
-		// sort result
+	// Sort results
 	qsort(results, result_length, sizeof(Result), &result_comparator);
 
-	// output
+	// Write results
 	for (result_idx = 0; result_idx < result_length; result_idx++) {
 		Result rs = results[result_idx];
 		fprintf(outfile, "%d|%d|%lu|%lu\n", qid, rs.score, rs.person_id, rs.knows_id);
 	}
 
-	delete(score_map);
 }
 
 void query_line_handler(unsigned char nfields, char **tokens)
@@ -168,6 +183,12 @@ void query_line_handler(unsigned char nfields, char **tokens)
 	query(q_id, q_artist, q_relartists, q_bdaystart, q_bdayend);
 }
 
+/**
+ * This is the number cruncher 🤓, and is responsible for:
+ * - Determining which people like the passed interests or not
+ *   and filter for potential candidates, whose friends like that
+ *   particular artist.
+ * */
 int main(int argc, char *argv[])
 {
 	if (argc < 4)
@@ -183,7 +204,7 @@ int main(int argc, char *argv[])
 	postings_map = (unsigned int *)mmapr(makepath((char *)query_path, (char *)"postings", (char *)"bin"), &postings_length);
 	tags_map = (unsigned int *)mmapr(makepath((char *)query_path, (char *)"tags", (char *)"bin"), &tags_length);
 	date_map = (Date *)mmapr(makepath((char *)query_path, (char *)"date", (char *)"bin"), &date_length);
-
+	// Calculate max items
 	person_elem_count = person_length / sizeof(PackedPerson);
 	knows_elem_count = knows_length / sizeof(unsigned int);
 	postings_elem_count = postings_length / sizeof(unsigned int);
