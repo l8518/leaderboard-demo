@@ -204,5 +204,7 @@ int main(int argc, char *argv[])
 		fprintf(outfile, "%d|%d|%lu|%lu\n", rs.qid, rs.score, rs.person_id, rs.knows_id);
 	}
 
+	fclose(outfile);
+
 	return 0;
 }
